@@ -233,6 +233,13 @@ let o_component__bw_image_to_3d = {
                             {
                                 class: 'bw3d__section',
                                 a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Height colormap (blue → green → red)' },
+                                    { s_tag: 'input', type: 'checkbox', 'v-model': 'b_colormap__height' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                a_o: [
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Ambient light: {{ n_intensity__ambient.toFixed(2) }}' },
                                     { s_tag: 'input', type: 'range', 'v-model.number': 'n_intensity__ambient', 'v-on:input': 'f_set_ambient', min: '0', max: '2', step: '0.01', class: 'bw3d__range' },
                                 ],
@@ -298,6 +305,7 @@ let o_component__bw_image_to_3d = {
             s_color__bg: '#0a0a12',
             s_color__mesh: '#8b74ea',
             b_wireframe: false,
+            b_colormap__height: true,
             n_intensity__ambient: 0.4,
             n_intensity__directional: 0.8,
             b_autorotate: true,
@@ -708,6 +716,11 @@ let o_component__bw_image_to_3d = {
             let n_mm__displacement = n_factor * 20;
             o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, s_type);
 
+            // apply height colormap if enabled
+            if (o_self.b_colormap__height) {
+                o_self.f_apply_vertex_color(o_geometry, s_type);
+            }
+
             o_geometry.computeVertexNormals();
 
             let o_material = new THREE.MeshStandardMaterial({
@@ -715,6 +728,7 @@ let o_component__bw_image_to_3d = {
                 wireframe: o_self.b_wireframe,
                 side: THREE.DoubleSide,
                 flatShading: true,
+                vertexColors: o_self.b_colormap__height,
             });
 
             let o_group = new THREE.Group();
@@ -874,6 +888,67 @@ let o_component__bw_image_to_3d = {
                 }
             }
             o_pos.needsUpdate = true;
+        },
+
+        f_apply_vertex_color: function (o_geometry, s_type) {
+            let o_self = this;
+            let THREE = o_self._THREE;
+            let o_pos = o_geometry.attributes.position;
+            let n_cnt = o_pos.count;
+
+            // determine height axis per geometry type
+            // sphere/cylinder: radial distance from center
+            // plane: z value
+            let a_n__height = new Float32Array(n_cnt);
+            let n_min = Infinity;
+            let n_max = -Infinity;
+
+            for (let n_idx = 0; n_idx < n_cnt; n_idx++) {
+                let n_h;
+                if (s_type === 'plane') {
+                    n_h = o_pos.getZ(n_idx);
+                } else if (s_type === 'sphere') {
+                    let n_x = o_pos.getX(n_idx);
+                    let n_y = o_pos.getY(n_idx);
+                    let n_z = o_pos.getZ(n_idx);
+                    n_h = Math.sqrt(n_x * n_x + n_y * n_y + n_z * n_z);
+                } else if (s_type === 'cylinder') {
+                    let n_x = o_pos.getX(n_idx);
+                    let n_z = o_pos.getZ(n_idx);
+                    n_h = Math.sqrt(n_x * n_x + n_z * n_z);
+                }
+                a_n__height[n_idx] = n_h;
+                if (n_h < n_min) n_min = n_h;
+                if (n_h > n_max) n_max = n_h;
+            }
+
+            let n_range = n_max - n_min;
+            if (n_range === 0) n_range = 1;
+
+            // blue (low) → green (mid) → red (high)
+            let a_n__color = new Float32Array(n_cnt * 3);
+            for (let n_idx = 0; n_idx < n_cnt; n_idx++) {
+                let n_t = (a_n__height[n_idx] - n_min) / n_range;
+                let n_r, n_g, n_b;
+                if (n_t < 0.5) {
+                    // blue to green
+                    let n_t2 = n_t * 2;
+                    n_r = 0;
+                    n_g = n_t2;
+                    n_b = 1 - n_t2;
+                } else {
+                    // green to red
+                    let n_t2 = (n_t - 0.5) * 2;
+                    n_r = n_t2;
+                    n_g = 1 - n_t2;
+                    n_b = 0;
+                }
+                a_n__color[n_idx * 3] = n_r;
+                a_n__color[n_idx * 3 + 1] = n_g;
+                a_n__color[n_idx * 3 + 2] = n_b;
+            }
+
+            o_geometry.setAttribute('color', new THREE.BufferAttribute(a_n__color, 3));
         },
 
         // scene controls
