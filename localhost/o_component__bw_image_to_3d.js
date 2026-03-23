@@ -37,6 +37,12 @@ let o_component__bw_image_to_3d = {
                         'v-on:click': "b_overlay__scene = !b_overlay__scene",
                         innerText: 'Scene',
                     },
+                    {
+                        s_tag: 'div',
+                        ':class': "'bw3d__toolbar_btn interactable' + (b_overlay__tiling ? ' active' : '')",
+                        'v-on:click': "b_overlay__tiling = !b_overlay__tiling",
+                        innerText: 'Tiling',
+                    },
                 ],
             },
             // overlay: image
@@ -278,6 +284,68 @@ let o_component__bw_image_to_3d = {
                     },
                 ],
             },
+            // overlay: tiling
+            {
+                s_tag: 'div',
+                ':class': "'bw3d__overlay' + (b_overlay__tiling ? ' visible' : '')",
+                ':style': "o_style__overlay__tiling",
+                ref: 'overlay__tiling',
+                a_o: [
+                    {
+                        s_tag: 'div',
+                        class: 'bw3d__overlay_header',
+                        'v-on:pointerdown': "f_drag_start($event, 'tiling')",
+                        a_o: [
+                            { s_tag: 'span', class: 'bw3d__overlay_title', innerText: 'Tiling' },
+                            { s_tag: 'span', class: 'bw3d__overlay_close interactable', 'v-on:click': 'b_overlay__tiling = false', innerHTML: '&times;' },
+                        ],
+                    },
+                    {
+                        s_tag: 'div',
+                        class: 'bw3d__overlay_body',
+                        a_o: [
+                            {
+                                class: 'bw3d__section',
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Columns' },
+                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_tile_col', min: '1', max: '20', step: '1', class: 'bw3d__input' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Rows' },
+                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_tile_row', min: '1', max: '20', step: '1', class: 'bw3d__input' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                a_o: [
+                                    { s_tag: 'div', class: 'bw3d__info', innerText: '{{ n_tile_col * n_tile_row }} tile(s), using current selection region' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                a_o: [
+                                    {
+                                        s_tag: 'div',
+                                        ':class': "'bw3d__btn interactable' + (b_tiling__running ? ' disabled' : '')",
+                                        'v-on:click': 'f_start_tiling',
+                                        innerText: "{{ b_tiling__running ? 'Exporting...' : 'Export all tiles' }}",
+                                    },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                'v-if': 'b_tiling__running || s_tiling__status',
+                                a_o: [
+                                    { s_tag: 'div', class: 'bw3d__info', innerText: '{{ s_tiling__status }}' },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
         ],
     })).outerHTML,
     data: function () {
@@ -286,10 +354,12 @@ let o_component__bw_image_to_3d = {
             b_overlay__image: true,
             b_overlay__3d_config: true,
             b_overlay__scene: true,
+            b_overlay__tiling: false,
             // overlay positions
             o_style__overlay__image: { left: '20px', top: '100px' },
             o_style__overlay__3d_config: { left: '340px', top: '100px' },
             o_style__overlay__scene: { left: '660px', top: '100px' },
+            o_style__overlay__tiling: { left: '660px', top: '400px' },
             // image
             s_url: '',
             s_resolution: 'No image loaded',
@@ -311,6 +381,11 @@ let o_component__bw_image_to_3d = {
             n_mm__max_width: 170,
             n_mm__baseplate: 5,
             n_deg__chamfer: 60,
+            // tiling
+            n_tile_col: 3,
+            n_tile_row: 3,
+            b_tiling__running: false,
+            s_tiling__status: '',
             // scene
             s_color__bg: '#0a0a12',
             s_color__mesh: '#8b74ea',
@@ -776,15 +851,12 @@ let o_component__bw_image_to_3d = {
             o_self._o_group = o_group;
         },
 
-        f_download_stl: function () {
+        f_o_buffer__stl_from_o_group: function (o_group) {
             let o_self = this;
-            if (!o_self._o_group || !o_self._THREE) return;
-
             let THREE = o_self._THREE;
 
-            // merge all geometries in the group into one for export
             let a_o_geometry = [];
-            o_self._o_group.traverse(function (o_child) {
+            o_group.traverse(function (o_child) {
                 if (o_child.isMesh) {
                     let o_geom = o_child.geometry.clone();
                     o_geom.applyMatrix4(o_child.matrixWorld);
@@ -795,18 +867,15 @@ let o_component__bw_image_to_3d = {
                 }
             });
 
-            // count total triangles
             let n_cnt__triangle = 0;
             for (let o_geom of a_o_geometry) {
                 n_cnt__triangle += o_geom.attributes.position.count / 3;
             }
 
-            // binary STL: 80 byte header + 4 byte triangle count + 50 bytes per triangle
             let n_len = 80 + 4 + n_cnt__triangle * 50;
             let o_buffer = new ArrayBuffer(n_len);
             let o_view = new DataView(o_buffer);
 
-            // header (80 bytes, zeroed)
             let n_off = 80;
             o_view.setUint32(n_off, n_cnt__triangle, true);
             n_off += 4;
@@ -824,40 +893,196 @@ let o_component__bw_image_to_3d = {
                     o_vb.fromBufferAttribute(o_pos, n_idx + 1);
                     o_vc.fromBufferAttribute(o_pos, n_idx + 2);
 
-                    // compute face normal
                     o_cb.subVectors(o_vc, o_vb);
                     o_ab.subVectors(o_va, o_vb);
                     o_cb.cross(o_ab).normalize();
 
-                    // normal
                     o_view.setFloat32(n_off, o_cb.x, true); n_off += 4;
                     o_view.setFloat32(n_off, o_cb.y, true); n_off += 4;
                     o_view.setFloat32(n_off, o_cb.z, true); n_off += 4;
-                    // vertex 1
                     o_view.setFloat32(n_off, o_va.x, true); n_off += 4;
                     o_view.setFloat32(n_off, o_va.y, true); n_off += 4;
                     o_view.setFloat32(n_off, o_va.z, true); n_off += 4;
-                    // vertex 2
                     o_view.setFloat32(n_off, o_vb.x, true); n_off += 4;
                     o_view.setFloat32(n_off, o_vb.y, true); n_off += 4;
                     o_view.setFloat32(n_off, o_vb.z, true); n_off += 4;
-                    // vertex 3
                     o_view.setFloat32(n_off, o_vc.x, true); n_off += 4;
                     o_view.setFloat32(n_off, o_vc.y, true); n_off += 4;
                     o_view.setFloat32(n_off, o_vc.z, true); n_off += 4;
-                    // attribute byte count
                     o_view.setUint16(n_off, 0, true); n_off += 2;
                 }
                 o_geom.dispose();
             }
 
+            return o_buffer;
+        },
+
+        f_download_buffer: function (o_buffer, s_filename) {
             let o_blob = new Blob([o_buffer], { type: 'application/octet-stream' });
             let s_url = URL.createObjectURL(o_blob);
             let el_a = document.createElement('a');
             el_a.href = s_url;
-            el_a.download = 'bw_to_3d_' + o_self.s_type__geometry + '.stl';
+            el_a.download = s_filename;
             el_a.click();
             URL.revokeObjectURL(s_url);
+        },
+
+        f_download_stl: function () {
+            let o_self = this;
+            if (!o_self._o_group || !o_self._THREE) return;
+            let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_self._o_group);
+            o_self.f_download_buffer(o_buffer, 'bw_to_3d_' + o_self.s_type__geometry + '.stl');
+        },
+
+        // extract grayscale data for a sub-region of the grayscale canvas
+        f_a_n__extract_region: function (n_x, n_y, n_scl_x, n_scl_y) {
+            let o_self = this;
+            let o_ctx = o_self._el_canvas__grayscale.getContext('2d');
+            let o_imagedata = o_ctx.getImageData(n_x, n_y, n_scl_x, n_scl_y);
+            let a_n__rgba = o_imagedata.data;
+
+            let n_out_x = n_scl_x;
+            let n_out_y = n_scl_y;
+            let n_max = o_self.n_max_resolution;
+
+            if (n_out_x > n_max || n_out_y > n_max) {
+                let n_ratio = Math.min(n_max / n_out_x, n_max / n_out_y);
+                n_out_x = Math.floor(n_out_x * n_ratio);
+                n_out_y = Math.floor(n_out_y * n_ratio);
+            }
+
+            let a_n__gray;
+            if (n_out_x !== n_scl_x || n_out_y !== n_scl_y) {
+                let el_tmp = document.createElement('canvas');
+                el_tmp.width = n_scl_x;
+                el_tmp.height = n_scl_y;
+                let o_ctx_tmp = el_tmp.getContext('2d');
+                o_ctx_tmp.putImageData(o_imagedata, 0, 0);
+
+                let el_tmp2 = document.createElement('canvas');
+                el_tmp2.width = n_out_x;
+                el_tmp2.height = n_out_y;
+                let o_ctx_tmp2 = el_tmp2.getContext('2d');
+                o_ctx_tmp2.drawImage(el_tmp, 0, 0, n_out_x, n_out_y);
+
+                let o_imagedata2 = o_ctx_tmp2.getImageData(0, 0, n_out_x, n_out_y);
+                a_n__gray = new Uint8Array(n_out_x * n_out_y);
+                for (let n_idx = 0; n_idx < a_n__gray.length; n_idx++) {
+                    a_n__gray[n_idx] = o_imagedata2.data[n_idx * 4];
+                }
+            } else {
+                a_n__gray = new Uint8Array(n_out_x * n_out_y);
+                for (let n_idx = 0; n_idx < a_n__gray.length; n_idx++) {
+                    a_n__gray[n_idx] = a_n__rgba[n_idx * 4];
+                }
+            }
+
+            return { a_n__gray, n_scl_x: n_out_x, n_scl_y: n_out_y };
+        },
+
+        // build a mesh group from grayscale data (offscreen, no scene interaction)
+        f_o_group__from_data: function (a_n__data, n_scl_x, n_scl_y) {
+            let o_self = this;
+            let THREE = o_self._THREE;
+            let s_type = o_self.s_type__geometry;
+            let n_factor = o_self.n_factor;
+
+            let o_geometry = null;
+            if (s_type === 'sphere') {
+                o_geometry = new THREE.SphereGeometry(1, n_scl_x - 1, n_scl_y - 1);
+            } else if (s_type === 'cylinder') {
+                o_geometry = new THREE.CylinderGeometry(1, 1, 2, n_scl_x - 1, n_scl_y - 1, true);
+            } else if (s_type === 'plane') {
+                let n_ratio = n_scl_x / n_scl_y;
+                let n_plane_x = n_ratio >= 1 ? 2 : 2 * n_ratio;
+                let n_plane_y = n_ratio >= 1 ? 2 / n_ratio : 2;
+                o_geometry = new THREE.PlaneGeometry(n_plane_x, n_plane_y, n_scl_x - 1, n_scl_y - 1);
+            }
+
+            // scale to mm
+            o_geometry.computeBoundingBox();
+            let o_box = o_geometry.boundingBox;
+            let n_max_dim = Math.max(
+                o_box.max.x - o_box.min.x,
+                o_box.max.y - o_box.min.y,
+                o_box.max.z - o_box.min.z
+            );
+            let n_scl = o_self.n_mm__max_width / n_max_dim;
+            o_geometry.scale(n_scl, n_scl, n_scl);
+
+            let n_mm__displacement = n_factor * 10;
+            o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, s_type);
+
+            let o_group = new THREE.Group();
+
+            if (s_type === 'plane' && o_self.n_mm__baseplate > 0) {
+                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer);
+                o_geom__solid.computeVertexNormals();
+                let o_mesh = new THREE.Mesh(o_geom__solid, new THREE.MeshBasicMaterial());
+                o_group.add(o_mesh);
+                o_geometry.dispose();
+            } else {
+                o_geometry.computeVertexNormals();
+                let o_mesh = new THREE.Mesh(o_geometry, new THREE.MeshBasicMaterial());
+                o_group.add(o_mesh);
+            }
+
+            return o_group;
+        },
+
+        f_start_tiling: async function () {
+            let o_self = this;
+            if (!o_self._el_canvas__grayscale || !o_self._THREE || o_self.b_tiling__running) return;
+
+            o_self.b_tiling__running = true;
+            let n_col = o_self.n_tile_col;
+            let n_row = o_self.n_tile_row;
+
+            // tile within the current selection region
+            let n_sel_x = Math.round(o_self.n_sel_x);
+            let n_sel_y = Math.round(o_self.n_sel_y);
+            let n_sel_w = Math.round(o_self.n_sel_scl_x);
+            let n_sel_h = Math.round(o_self.n_sel_scl_y);
+
+            let n_tile_w = Math.floor(n_sel_w / n_col);
+            let n_tile_h = Math.floor(n_sel_h / n_row);
+            let n_total = n_col * n_row;
+            let n_done = 0;
+
+            for (let n_r = 0; n_r < n_row; n_r++) {
+                for (let n_c = 0; n_c < n_col; n_c++) {
+                    let n_x = n_sel_x + n_c * n_tile_w;
+                    let n_y = n_sel_y + n_r * n_tile_h;
+                    // last tile in each axis picks up remainder pixels
+                    let n_w = (n_c === n_col - 1) ? (n_sel_x + n_sel_w - n_x) : n_tile_w;
+                    let n_h = (n_r === n_row - 1) ? (n_sel_y + n_sel_h - n_y) : n_tile_h;
+
+                    n_done++;
+                    o_self.s_tiling__status = 'Tile ' + n_done + '/' + n_total + ' (r' + (n_r + 1) + '_c' + (n_c + 1) + ')';
+
+                    // yield to UI
+                    await new Promise(function (f_resolve) { setTimeout(f_resolve, 100); });
+
+                    let o_region = o_self.f_a_n__extract_region(n_x, n_y, n_w, n_h);
+                    let o_group = o_self.f_o_group__from_data(o_region.a_n__gray, o_region.n_scl_x, o_region.n_scl_y);
+                    let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
+
+                    // cleanup
+                    o_group.traverse(function (o_child) {
+                        if (o_child.geometry) o_child.geometry.dispose();
+                        if (o_child.material) o_child.material.dispose();
+                    });
+
+                    let s_filename = 'tile_r' + (n_r + 1) + '_c' + (n_c + 1) + '.stl';
+                    o_self.f_download_buffer(o_buffer, s_filename);
+
+                    // delay between downloads so browser doesn't block them
+                    await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
+                }
+            }
+
+            o_self.s_tiling__status = 'Done — ' + n_total + ' tile(s) exported';
+            o_self.b_tiling__running = false;
         },
 
         f_apply_displacement: function (o_geometry, a_n__data, n_scl_x, n_scl_y, n_factor, s_type) {
