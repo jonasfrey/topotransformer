@@ -273,8 +273,8 @@ let o_component__bw_image_to_3d = {
     methods: {
         f_init_three: async function () {
             let o_self = this;
-            let THREE = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js');
-            let { OrbitControls } = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js');
+            let THREE = await import('three');
+            let { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
 
             let el_canvas = o_self.$refs.canvas__three;
 
