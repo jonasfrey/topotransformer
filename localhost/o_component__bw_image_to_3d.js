@@ -378,7 +378,7 @@ let o_component__bw_image_to_3d = {
             s_type__geometry: 'sphere',
             n_max_resolution: 5000,
             n_factor: 0.5,
-            n_mm__max_width: 170,
+            n_mm__max_width: 240,
             n_mm__baseplate: 5,
             n_deg__chamfer: 60,
             // tiling
