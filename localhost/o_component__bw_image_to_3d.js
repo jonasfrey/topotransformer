@@ -131,7 +131,7 @@ let o_component__bw_image_to_3d = {
                                 class: 'bw3d__section',
                                 a_o: [
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Max resolution' },
-                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_max_resolution', min: '8', max: '1024', step: '8', class: 'bw3d__input' },
+                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_max_resolution', min: '8', max: '5000', step: '8', class: 'bw3d__input' },
                                     { s_tag: 'div', class: 'bw3d__info', innerText: 'Image will be downsampled if larger' },
                                 ],
                             },
@@ -245,7 +245,7 @@ let o_component__bw_image_to_3d = {
             n_scl_y__image: 0,
             // 3d config
             s_type__geometry: 'sphere',
-            n_max_resolution: 256,
+            n_max_resolution: 5000,
             n_factor: 1,
             // scene
             s_color__bg: '#0a0a12',
