@@ -601,9 +601,8 @@ let o_component__bw_image_to_3d = {
                 let n_dx = (o_evt2.clientX - n_start_mouse_x) * n_scl_ratio_x;
                 let n_dy = (o_evt2.clientY - n_start_mouse_y) * n_scl_ratio_y;
 
-                // dragging moves in opposite direction (pan the view)
-                let n_new_x = n_start_sel_x - n_dx;
-                let n_new_y = n_start_sel_y - n_dy;
+                let n_new_x = n_start_sel_x + n_dx;
+                let n_new_y = n_start_sel_y + n_dy;
 
                 n_new_x = Math.max(0, Math.min(n_new_x, o_self.n_scl_x__full - o_self.n_sel_scl_x));
                 n_new_y = Math.max(0, Math.min(n_new_y, o_self.n_scl_y__full - o_self.n_sel_scl_y));

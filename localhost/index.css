@@ -440,7 +440,6 @@ main {
 .bw3d__overlay {
     position: absolute;
     min-width: 280px;
-    max-width: 400px;
     background: rgba(10, 10, 18, 0.92);
     backdrop-filter: blur(12px);
     border: 1px solid var(--c-border);
@@ -449,6 +448,8 @@ main {
     display: none;
     flex-direction: column;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    resize: both;
+    overflow: hidden;
 }
 
 .bw3d__overlay.visible {
@@ -493,8 +494,8 @@ main {
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-    max-height: 70vh;
     overflow-y: auto;
+    flex: 1;
 }
 
 .bw3d__section {
@@ -561,7 +562,6 @@ main {
 .bw3d__preview_container {
     position: relative;
     width: 100%;
-    max-width: 300px;
     border: 1px solid var(--c-border);
     border-radius: var(--r);
     overflow: hidden;
