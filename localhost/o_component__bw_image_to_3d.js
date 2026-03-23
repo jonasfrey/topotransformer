@@ -175,6 +175,15 @@ let o_component__bw_image_to_3d = {
                             },
                             {
                                 class: 'bw3d__section',
+                                'v-if': "s_type__geometry === 'plane'",
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Chamfer angle: {{ n_deg__chamfer }}°' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_deg__chamfer', min: '0', max: '45', step: '1', class: 'bw3d__range' },
+                                    { s_tag: 'div', class: 'bw3d__info', innerText: 'Tilts bottom face for overhang-free vertical printing' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
                                 a_o: [
                                     {
                                         class: 'bw3d__row',
@@ -301,6 +310,7 @@ let o_component__bw_image_to_3d = {
             n_factor: 0.5,
             n_mm__max_width: 170,
             n_mm__baseplate: 5,
+            n_deg__chamfer: 30,
             // scene
             s_color__bg: '#0a0a12',
             s_color__mesh: '#8b74ea',
@@ -735,7 +745,7 @@ let o_component__bw_image_to_3d = {
 
             // for plane mode with baseplate: build a single watertight solid
             if (s_type === 'plane' && o_self.n_mm__baseplate > 0) {
-                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate);
+                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer);
 
                 if (o_self.b_colormap__height) {
                     o_self.f_apply_vertex_color(o_geom__solid, s_type);
@@ -896,8 +906,8 @@ let o_component__bw_image_to_3d = {
         },
 
         // build a single watertight solid from a displaced plane:
-        // top face (displaced surface) + bottom face (flat) + 4 side walls
-        f_o_geometry__solid_plane: function (o_geom__top, n_thickness) {
+        // top face (displaced surface) + bottom face (flat or chamfered) + 4 side walls
+        f_o_geometry__solid_plane: function (o_geom__top, n_thickness, n_deg__chamfer) {
             let o_self = this;
             let THREE = o_self._THREE;
             let o_pos__top = o_geom__top.attributes.position;
@@ -934,8 +944,27 @@ let o_component__bw_image_to_3d = {
             }
 
             // --- bottom vertices: n_cnt__vertex .. 2*n_cnt__vertex-1 ---
+            // chamfer: slope bottom face so the y_min edge is raised,
+            // creating an angled foot for vertical printing
+            let n_y_min = Infinity;
+            let n_y_max = -Infinity;
             for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
-                a_n__pos.push(o_pos__top.getX(n_idx), o_pos__top.getY(n_idx), n_z_bottom);
+                let n_y = o_pos__top.getY(n_idx);
+                if (n_y < n_y_min) n_y_min = n_y;
+                if (n_y > n_y_max) n_y_max = n_y;
+            }
+            let n_y_span = n_y_max - n_y_min;
+            // chamfer rise: how much z is added at y_min edge
+            // full span * tan(angle) gives the total z rise across the bottom face
+            let n_rad__chamfer = (n_deg__chamfer || 0) * Math.PI / 180;
+            let n_z_rise = n_y_span * Math.tan(n_rad__chamfer);
+
+            for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                let n_y = o_pos__top.getY(n_idx);
+                // linear interpolation: y_min gets full rise, y_max gets 0
+                let n_t = (n_y_max - n_y) / n_y_span;
+                let n_z = n_z_bottom + n_t * n_z_rise;
+                a_n__pos.push(o_pos__top.getX(n_idx), n_y, n_z);
             }
 
             // --- top face triangles (same winding as original) ---
