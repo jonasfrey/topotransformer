@@ -732,33 +732,38 @@ let o_component__bw_image_to_3d = {
             });
 
             let o_group = new THREE.Group();
-            let o_mesh = new THREE.Mesh(o_geometry, o_material);
-            o_group.add(o_mesh);
 
-            // baseplate for plane mode
+            // for plane mode with baseplate: build a single watertight solid
             if (s_type === 'plane' && o_self.n_mm__baseplate > 0) {
-                o_geometry.computeBoundingBox();
-                let o_box2 = o_geometry.boundingBox;
-                let n_w = o_box2.max.x - o_box2.min.x;
-                let n_h = o_box2.max.y - o_box2.min.y;
-                let n_z_min = o_box2.min.z;
-                let n_thickness = o_self.n_mm__baseplate;
+                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate);
 
-                let o_geom__base = new THREE.BoxGeometry(n_w, n_h, n_thickness);
-                // position baseplate so its top face aligns with the lowest point of the displaced surface
-                o_geom__base.translate(
-                    (o_box2.min.x + o_box2.max.x) / 2,
-                    (o_box2.min.y + o_box2.max.y) / 2,
-                    n_z_min - n_thickness / 2
-                );
-                let o_mat__base = o_material.clone();
-                let o_mesh__base = new THREE.Mesh(o_geom__base, o_mat__base);
-                o_group.add(o_mesh__base);
+                if (o_self.b_colormap__height) {
+                    o_self.f_apply_vertex_color(o_geom__solid, s_type);
+                }
+                o_geom__solid.computeVertexNormals();
+
+                let o_mat__solid = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color(o_self.s_color__mesh),
+                    wireframe: o_self.b_wireframe,
+                    side: THREE.DoubleSide,
+                    flatShading: true,
+                    vertexColors: o_self.b_colormap__height,
+                });
+
+                let o_mesh__solid = new THREE.Mesh(o_geom__solid, o_mat__solid);
+                o_group.add(o_mesh__solid);
+                o_self._o_mesh = o_mesh__solid;
+
+                // dispose the original plane geometry
+                o_geometry.dispose();
+            } else {
+                let o_mesh = new THREE.Mesh(o_geometry, o_material);
+                o_group.add(o_mesh);
+                o_self._o_mesh = o_mesh;
             }
 
             o_scene.add(o_group);
             o_self._o_group = o_group;
-            o_self._o_mesh = o_mesh;
         },
 
         f_download_stl: function () {
@@ -888,6 +893,112 @@ let o_component__bw_image_to_3d = {
                 }
             }
             o_pos.needsUpdate = true;
+        },
+
+        // build a single watertight solid from a displaced plane:
+        // top face (displaced surface) + bottom face (flat) + 4 side walls
+        f_o_geometry__solid_plane: function (o_geom__top, n_thickness) {
+            let o_self = this;
+            let THREE = o_self._THREE;
+            let o_pos__top = o_geom__top.attributes.position;
+            let o_idx__top = o_geom__top.index;
+            let n_cnt__vertex = o_pos__top.count;
+
+            // find grid dimensions from the geometry
+            // PlaneGeometry with (w_seg, h_seg) has (w_seg+1) * (h_seg+1) vertices
+            // arranged row by row. We need n_col (w_seg+1).
+            // Detect n_col: first row shares same Y value
+            let n_y_first = o_pos__top.getY(0);
+            let n_col = 1;
+            while (n_col < n_cnt__vertex && o_pos__top.getY(n_col) === n_y_first) {
+                n_col++;
+            }
+            let n_row = n_cnt__vertex / n_col;
+
+            // find z_min across all displaced vertices
+            let n_z_min = Infinity;
+            for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                let n_z = o_pos__top.getZ(n_idx);
+                if (n_z < n_z_min) n_z_min = n_z;
+            }
+            let n_z_bottom = n_z_min - n_thickness;
+
+            // build arrays: top vertices + bottom vertices (same XY, flat Z)
+            // then: top face triangles, bottom face triangles, 4 side wall strips
+            let a_n__pos = [];
+            let a_n__idx = [];
+
+            // --- top vertices: 0 .. n_cnt__vertex-1 ---
+            for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                a_n__pos.push(o_pos__top.getX(n_idx), o_pos__top.getY(n_idx), o_pos__top.getZ(n_idx));
+            }
+
+            // --- bottom vertices: n_cnt__vertex .. 2*n_cnt__vertex-1 ---
+            for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                a_n__pos.push(o_pos__top.getX(n_idx), o_pos__top.getY(n_idx), n_z_bottom);
+            }
+
+            // --- top face triangles (same winding as original) ---
+            if (o_idx__top) {
+                for (let n_idx = 0; n_idx < o_idx__top.count; n_idx++) {
+                    a_n__idx.push(o_idx__top.getX(n_idx));
+                }
+            } else {
+                for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                    a_n__idx.push(n_idx);
+                }
+            }
+
+            // --- bottom face triangles (reversed winding, offset by n_cnt__vertex) ---
+            if (o_idx__top) {
+                for (let n_idx = 0; n_idx < o_idx__top.count; n_idx += 3) {
+                    a_n__idx.push(
+                        o_idx__top.getX(n_idx) + n_cnt__vertex,
+                        o_idx__top.getX(n_idx + 2) + n_cnt__vertex,
+                        o_idx__top.getX(n_idx + 1) + n_cnt__vertex
+                    );
+                }
+            }
+
+            // --- side walls ---
+            // each side wall connects a perimeter edge on top to the same edge on bottom
+            // 4 edges: top row, bottom row, left column, right column
+
+            // helper: add a quad as 2 triangles between top edge vertex and bottom edge vertex
+            let f_add_wall_quad = function (n_a_top, n_b_top) {
+                let n_a_bot = n_a_top + n_cnt__vertex;
+                let n_b_bot = n_b_top + n_cnt__vertex;
+                // two triangles forming the quad
+                a_n__idx.push(n_a_top, n_b_top, n_b_bot);
+                a_n__idx.push(n_a_top, n_b_bot, n_a_bot);
+            };
+
+            // top edge (row 0): vertices 0..n_col-1, normal faces -Y
+            for (let n_idx = 0; n_idx < n_col - 1; n_idx++) {
+                f_add_wall_quad(n_idx + 1, n_idx);
+            }
+
+            // bottom edge (last row): vertices (n_row-1)*n_col .. n_row*n_col-1, normal faces +Y
+            let n_off__last_row = (n_row - 1) * n_col;
+            for (let n_idx = 0; n_idx < n_col - 1; n_idx++) {
+                f_add_wall_quad(n_off__last_row + n_idx, n_off__last_row + n_idx + 1);
+            }
+
+            // left edge (col 0): vertices 0, n_col, 2*n_col, ..., normal faces -X
+            for (let n_idx = 0; n_idx < n_row - 1; n_idx++) {
+                f_add_wall_quad(n_idx * n_col, (n_idx + 1) * n_col);
+            }
+
+            // right edge (last col): vertices n_col-1, 2*n_col-1, ..., normal faces +X
+            for (let n_idx = 0; n_idx < n_row - 1; n_idx++) {
+                f_add_wall_quad((n_idx + 1) * n_col + n_col - 1, n_idx * n_col + n_col - 1);
+            }
+
+            let o_geom = new THREE.BufferGeometry();
+            o_geom.setAttribute('position', new THREE.Float32BufferAttribute(a_n__pos, 3));
+            o_geom.setIndex(a_n__idx);
+
+            return o_geom;
         },
 
         f_apply_vertex_color: function (o_geometry, s_type) {
