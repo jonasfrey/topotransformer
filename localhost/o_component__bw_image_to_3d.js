@@ -161,7 +161,28 @@ let o_component__bw_image_to_3d = {
                             {
                                 class: 'bw3d__section',
                                 a_o: [
-                                    { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_generate_mesh', innerText: 'Generate 3D' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Max width (mm)' },
+                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_mm__max_width', min: '1', step: '1', class: 'bw3d__input' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                'v-if': "s_type__geometry === 'plane'",
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Baseplate thickness (mm): {{ n_mm__baseplate.toFixed(1) }}' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__baseplate', min: '0', max: '20', step: '0.5', class: 'bw3d__range' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                a_o: [
+                                    {
+                                        class: 'bw3d__row',
+                                        a_o: [
+                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_generate_mesh', innerText: 'Generate 3D' },
+                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_download_stl', innerText: 'Download STL' },
+                                        ],
+                                    },
                                 ],
                             },
                         ],
@@ -271,6 +292,8 @@ let o_component__bw_image_to_3d = {
             s_type__geometry: 'sphere',
             n_max_resolution: 5000,
             n_factor: 1,
+            n_mm__max_width: 170,
+            n_mm__baseplate: 5,
             // scene
             s_color__bg: '#0a0a12',
             s_color__mesh: '#8b74ea',
@@ -287,6 +310,7 @@ let o_component__bw_image_to_3d = {
             _o_light__ambient: null,
             _o_light__directional: null,
             _o_mesh: null,
+            _o_group: null,
             _o_image__original: null,
             _el_canvas__grayscale: null,
             _n_id__animation: null,
@@ -641,11 +665,14 @@ let o_component__bw_image_to_3d = {
             let THREE = o_self._THREE;
             let o_scene = o_self._o_scene;
 
-            // remove old mesh
-            if (o_self._o_mesh) {
-                o_scene.remove(o_self._o_mesh);
-                o_self._o_mesh.geometry.dispose();
-                o_self._o_mesh.material.dispose();
+            // remove old group
+            if (o_self._o_group) {
+                o_scene.remove(o_self._o_group);
+                o_self._o_group.traverse(function (o_child) {
+                    if (o_child.geometry) o_child.geometry.dispose();
+                    if (o_child.material) o_child.material.dispose();
+                });
+                o_self._o_group = null;
                 o_self._o_mesh = null;
             }
 
@@ -665,6 +692,17 @@ let o_component__bw_image_to_3d = {
             }
 
             o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_factor, s_type);
+
+            // scale so max dimension = n_mm__max_width mm
+            o_geometry.computeBoundingBox();
+            let o_box = o_geometry.boundingBox;
+            let n_size_x = o_box.max.x - o_box.min.x;
+            let n_size_y = o_box.max.y - o_box.min.y;
+            let n_size_z = o_box.max.z - o_box.min.z;
+            let n_max_dim = Math.max(n_size_x, n_size_y, n_size_z);
+            let n_scl = o_self.n_mm__max_width / n_max_dim;
+            o_geometry.scale(n_scl, n_scl, n_scl);
+
             o_geometry.computeVertexNormals();
 
             let o_material = new THREE.MeshStandardMaterial({
@@ -674,9 +712,118 @@ let o_component__bw_image_to_3d = {
                 flatShading: true,
             });
 
+            let o_group = new THREE.Group();
             let o_mesh = new THREE.Mesh(o_geometry, o_material);
-            o_scene.add(o_mesh);
+            o_group.add(o_mesh);
+
+            // baseplate for plane mode
+            if (s_type === 'plane' && o_self.n_mm__baseplate > 0) {
+                o_geometry.computeBoundingBox();
+                let o_box2 = o_geometry.boundingBox;
+                let n_w = o_box2.max.x - o_box2.min.x;
+                let n_h = o_box2.max.y - o_box2.min.y;
+                let n_z_min = o_box2.min.z;
+                let n_thickness = o_self.n_mm__baseplate;
+
+                let o_geom__base = new THREE.BoxGeometry(n_w, n_h, n_thickness);
+                // position baseplate so its top face aligns with the lowest point of the displaced surface
+                o_geom__base.translate(
+                    (o_box2.min.x + o_box2.max.x) / 2,
+                    (o_box2.min.y + o_box2.max.y) / 2,
+                    n_z_min - n_thickness / 2
+                );
+                let o_mat__base = o_material.clone();
+                let o_mesh__base = new THREE.Mesh(o_geom__base, o_mat__base);
+                o_group.add(o_mesh__base);
+            }
+
+            o_scene.add(o_group);
+            o_self._o_group = o_group;
             o_self._o_mesh = o_mesh;
+        },
+
+        f_download_stl: function () {
+            let o_self = this;
+            if (!o_self._o_group || !o_self._THREE) return;
+
+            let THREE = o_self._THREE;
+
+            // merge all geometries in the group into one for export
+            let a_o_geometry = [];
+            o_self._o_group.traverse(function (o_child) {
+                if (o_child.isMesh) {
+                    let o_geom = o_child.geometry.clone();
+                    o_geom.applyMatrix4(o_child.matrixWorld);
+                    if (o_geom.index) {
+                        o_geom = o_geom.toNonIndexed();
+                    }
+                    a_o_geometry.push(o_geom);
+                }
+            });
+
+            // count total triangles
+            let n_cnt__triangle = 0;
+            for (let o_geom of a_o_geometry) {
+                n_cnt__triangle += o_geom.attributes.position.count / 3;
+            }
+
+            // binary STL: 80 byte header + 4 byte triangle count + 50 bytes per triangle
+            let n_len = 80 + 4 + n_cnt__triangle * 50;
+            let o_buffer = new ArrayBuffer(n_len);
+            let o_view = new DataView(o_buffer);
+
+            // header (80 bytes, zeroed)
+            let n_off = 80;
+            o_view.setUint32(n_off, n_cnt__triangle, true);
+            n_off += 4;
+
+            let o_va = new THREE.Vector3();
+            let o_vb = new THREE.Vector3();
+            let o_vc = new THREE.Vector3();
+            let o_cb = new THREE.Vector3();
+            let o_ab = new THREE.Vector3();
+
+            for (let o_geom of a_o_geometry) {
+                let o_pos = o_geom.attributes.position;
+                for (let n_idx = 0; n_idx < o_pos.count; n_idx += 3) {
+                    o_va.fromBufferAttribute(o_pos, n_idx);
+                    o_vb.fromBufferAttribute(o_pos, n_idx + 1);
+                    o_vc.fromBufferAttribute(o_pos, n_idx + 2);
+
+                    // compute face normal
+                    o_cb.subVectors(o_vc, o_vb);
+                    o_ab.subVectors(o_va, o_vb);
+                    o_cb.cross(o_ab).normalize();
+
+                    // normal
+                    o_view.setFloat32(n_off, o_cb.x, true); n_off += 4;
+                    o_view.setFloat32(n_off, o_cb.y, true); n_off += 4;
+                    o_view.setFloat32(n_off, o_cb.z, true); n_off += 4;
+                    // vertex 1
+                    o_view.setFloat32(n_off, o_va.x, true); n_off += 4;
+                    o_view.setFloat32(n_off, o_va.y, true); n_off += 4;
+                    o_view.setFloat32(n_off, o_va.z, true); n_off += 4;
+                    // vertex 2
+                    o_view.setFloat32(n_off, o_vb.x, true); n_off += 4;
+                    o_view.setFloat32(n_off, o_vb.y, true); n_off += 4;
+                    o_view.setFloat32(n_off, o_vb.z, true); n_off += 4;
+                    // vertex 3
+                    o_view.setFloat32(n_off, o_vc.x, true); n_off += 4;
+                    o_view.setFloat32(n_off, o_vc.y, true); n_off += 4;
+                    o_view.setFloat32(n_off, o_vc.z, true); n_off += 4;
+                    // attribute byte count
+                    o_view.setUint16(n_off, 0, true); n_off += 2;
+                }
+                o_geom.dispose();
+            }
+
+            let o_blob = new Blob([o_buffer], { type: 'application/octet-stream' });
+            let s_url = URL.createObjectURL(o_blob);
+            let el_a = document.createElement('a');
+            el_a.href = s_url;
+            el_a.download = 'bw_to_3d_' + o_self.s_type__geometry + '.stl';
+            el_a.click();
+            URL.revokeObjectURL(s_url);
         },
 
         f_apply_displacement: function (o_geometry, a_n__data, n_scl_x, n_scl_y, n_factor, s_type) {
@@ -803,6 +950,12 @@ let o_component__bw_image_to_3d = {
         if (this._f_on_resize) window.removeEventListener('resize', this._f_on_resize);
         if (this._o_renderer) this._o_renderer.dispose();
         if (this._o_control) this._o_control.dispose();
+        if (this._o_group) {
+            this._o_group.traverse(function (o_child) {
+                if (o_child.geometry) o_child.geometry.dispose();
+                if (o_child.material) o_child.material.dispose();
+            });
+        }
     },
 };
 
