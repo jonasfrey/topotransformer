@@ -90,9 +90,25 @@ let o_component__bw_image_to_3d = {
                             {
                                 class: 'bw3d__section',
                                 a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Preview' },
-                                    { s_tag: 'canvas', class: 'bw3d__preview', ref: 'canvas__preview', width: '256', height: '256' },
-                                    { s_tag: 'div', class: 'bw3d__info', innerText: '{{ s_resolution }}' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Preview (scroll to zoom, drag to move selection)' },
+                                    {
+                                        s_tag: 'div',
+                                        class: 'bw3d__preview_container',
+                                        ref: 'preview_container',
+                                        'v-on:wheel.prevent': 'f_selection_wheel($event)',
+                                        'v-on:pointerdown': 'f_selection_drag_start($event)',
+                                        a_o: [
+                                            { s_tag: 'canvas', class: 'bw3d__preview', ref: 'canvas__preview', width: '256', height: '256' },
+                                            { s_tag: 'canvas', class: 'bw3d__preview_overlay', ref: 'canvas__selection', width: '256', height: '256' },
+                                        ],
+                                    },
+                                    {
+                                        class: 'bw3d__row',
+                                        a_o: [
+                                            { s_tag: 'div', class: 'bw3d__info', style: 'flex:1', innerText: '{{ s_resolution }}' },
+                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_selection_reset', innerText: 'Reset size' },
+                                        ],
+                                    },
                                 ],
                             },
                         ],
@@ -243,6 +259,14 @@ let o_component__bw_image_to_3d = {
             a_n__image_data: null,
             n_scl_x__image: 0,
             n_scl_y__image: 0,
+            // selection rect (in original image pixel coordinates)
+            n_sel_x: 0,
+            n_sel_y: 0,
+            n_sel_scl_x: 0,
+            n_sel_scl_y: 0,
+            // full image size (original pixels)
+            n_scl_x__full: 0,
+            n_scl_y__full: 0,
             // 3d config
             s_type__geometry: 'sphere',
             n_max_resolution: 5000,
@@ -264,6 +288,7 @@ let o_component__bw_image_to_3d = {
             _o_light__directional: null,
             _o_mesh: null,
             _o_image__original: null,
+            _el_canvas__grayscale: null,
             _n_id__animation: null,
             // drag state
             _s_drag_overlay: null,
@@ -360,8 +385,7 @@ let o_component__bw_image_to_3d = {
             let o_self = this;
             o_self.n_max_resolution = n_val;
             if (o_self._o_image__original) {
-                o_self.f_process_image(o_self._o_image__original);
-                o_self.f_generate_mesh();
+                o_self.f_extract_selection();
             }
         },
 
@@ -370,53 +394,245 @@ let o_component__bw_image_to_3d = {
             o_self._o_image__original = o_image;
             let n_scl_x = o_image.width;
             let n_scl_y = o_image.height;
-            let n_max = o_self.n_max_resolution;
 
-            if (n_scl_x > n_max || n_scl_y > n_max) {
-                let n_ratio = Math.min(n_max / n_scl_x, n_max / n_scl_y);
-                n_scl_x = Math.floor(n_scl_x * n_ratio);
-                n_scl_y = Math.floor(n_scl_y * n_ratio);
-            }
+            o_self.n_scl_x__full = n_scl_x;
+            o_self.n_scl_y__full = n_scl_y;
 
-            let el_canvas__offscreen = document.createElement('canvas');
-            el_canvas__offscreen.width = n_scl_x;
-            el_canvas__offscreen.height = n_scl_y;
-            let o_ctx = el_canvas__offscreen.getContext('2d');
+            // draw full image to offscreen canvas as grayscale
+            let el_canvas__grayscale = document.createElement('canvas');
+            el_canvas__grayscale.width = n_scl_x;
+            el_canvas__grayscale.height = n_scl_y;
+            let o_ctx = el_canvas__grayscale.getContext('2d');
             o_ctx.drawImage(o_image, 0, 0, n_scl_x, n_scl_y);
 
             let o_imagedata = o_ctx.getImageData(0, 0, n_scl_x, n_scl_y);
             let a_n__rgba = o_imagedata.data;
-            let a_n__gray = new Uint8Array(n_scl_x * n_scl_y);
 
-            for (let n_idx = 0; n_idx < a_n__gray.length; n_idx++) {
+            // convert to grayscale in place
+            for (let n_idx = 0; n_idx < n_scl_x * n_scl_y; n_idx++) {
                 let n_off = n_idx * 4;
-                a_n__gray[n_idx] = Math.round(
+                let n_val = Math.round(
                     a_n__rgba[n_off] * 0.299 +
                     a_n__rgba[n_off + 1] * 0.587 +
                     a_n__rgba[n_off + 2] * 0.114
                 );
-            }
-
-            // write grayscale back for preview
-            for (let n_idx = 0; n_idx < a_n__gray.length; n_idx++) {
-                let n_off = n_idx * 4;
-                let n_val = a_n__gray[n_idx];
                 a_n__rgba[n_off] = n_val;
                 a_n__rgba[n_off + 1] = n_val;
                 a_n__rgba[n_off + 2] = n_val;
                 a_n__rgba[n_off + 3] = 255;
             }
             o_ctx.putImageData(o_imagedata, 0, 0);
+            o_self._el_canvas__grayscale = el_canvas__grayscale;
 
+            // draw preview
             let el_preview = o_self.$refs.canvas__preview;
             el_preview.width = n_scl_x;
             el_preview.height = n_scl_y;
-            el_preview.getContext('2d').drawImage(el_canvas__offscreen, 0, 0);
+            el_preview.getContext('2d').drawImage(el_canvas__grayscale, 0, 0);
+
+            // sync selection overlay canvas size
+            let el_selection = o_self.$refs.canvas__selection;
+            el_selection.width = n_scl_x;
+            el_selection.height = n_scl_y;
+
+            // reset selection to full image
+            o_self.n_sel_x = 0;
+            o_self.n_sel_y = 0;
+            o_self.n_sel_scl_x = n_scl_x;
+            o_self.n_sel_scl_y = n_scl_y;
+
+            o_self.f_draw_selection();
+            o_self.f_extract_selection();
+        },
+
+        f_draw_selection: function () {
+            let o_self = this;
+            let el_selection = o_self.$refs.canvas__selection;
+            if (!el_selection) return;
+            let o_ctx = el_selection.getContext('2d');
+            o_ctx.clearRect(0, 0, el_selection.width, el_selection.height);
+
+            // dim area outside selection
+            o_ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            o_ctx.fillRect(0, 0, el_selection.width, el_selection.height);
+            // clear the selection area
+            o_ctx.clearRect(o_self.n_sel_x, o_self.n_sel_y, o_self.n_sel_scl_x, o_self.n_sel_scl_y);
+
+            // draw red border
+            o_ctx.strokeStyle = '#ff3333';
+            o_ctx.lineWidth = Math.max(2, Math.round(o_self.n_scl_x__full / 200));
+            o_ctx.strokeRect(o_self.n_sel_x, o_self.n_sel_y, o_self.n_sel_scl_x, o_self.n_sel_scl_y);
+        },
+
+        f_extract_selection: function () {
+            let o_self = this;
+            if (!o_self._el_canvas__grayscale) return;
+
+            let n_x = Math.round(o_self.n_sel_x);
+            let n_y = Math.round(o_self.n_sel_y);
+            let n_scl_x = Math.round(o_self.n_sel_scl_x);
+            let n_scl_y = Math.round(o_self.n_sel_scl_y);
+
+            // clamp
+            n_x = Math.max(0, n_x);
+            n_y = Math.max(0, n_y);
+            n_scl_x = Math.min(n_scl_x, o_self.n_scl_x__full - n_x);
+            n_scl_y = Math.min(n_scl_y, o_self.n_scl_y__full - n_y);
+            if (n_scl_x < 1 || n_scl_y < 1) return;
+
+            // get selection pixels from the grayscale canvas
+            let o_ctx = o_self._el_canvas__grayscale.getContext('2d');
+            let o_imagedata = o_ctx.getImageData(n_x, n_y, n_scl_x, n_scl_y);
+            let a_n__rgba = o_imagedata.data;
+
+            // apply max resolution downsampling
+            let n_out_x = n_scl_x;
+            let n_out_y = n_scl_y;
+            let n_max = o_self.n_max_resolution;
+
+            if (n_out_x > n_max || n_out_y > n_max) {
+                let n_ratio = Math.min(n_max / n_out_x, n_max / n_out_y);
+                n_out_x = Math.floor(n_out_x * n_ratio);
+                n_out_y = Math.floor(n_out_y * n_ratio);
+            }
+
+            // if downsampling needed, draw to a temp canvas
+            let a_n__gray;
+            if (n_out_x !== n_scl_x || n_out_y !== n_scl_y) {
+                let el_tmp = document.createElement('canvas');
+                el_tmp.width = n_scl_x;
+                el_tmp.height = n_scl_y;
+                let o_ctx_tmp = el_tmp.getContext('2d');
+                o_ctx_tmp.putImageData(o_imagedata, 0, 0);
+
+                let el_tmp2 = document.createElement('canvas');
+                el_tmp2.width = n_out_x;
+                el_tmp2.height = n_out_y;
+                let o_ctx_tmp2 = el_tmp2.getContext('2d');
+                o_ctx_tmp2.drawImage(el_tmp, 0, 0, n_out_x, n_out_y);
+
+                let o_imagedata2 = o_ctx_tmp2.getImageData(0, 0, n_out_x, n_out_y);
+                a_n__gray = new Uint8Array(n_out_x * n_out_y);
+                for (let n_idx = 0; n_idx < a_n__gray.length; n_idx++) {
+                    a_n__gray[n_idx] = o_imagedata2.data[n_idx * 4];
+                }
+            } else {
+                a_n__gray = new Uint8Array(n_out_x * n_out_y);
+                for (let n_idx = 0; n_idx < a_n__gray.length; n_idx++) {
+                    a_n__gray[n_idx] = a_n__rgba[n_idx * 4];
+                }
+            }
 
             o_self.a_n__image_data = a_n__gray;
-            o_self.n_scl_x__image = n_scl_x;
-            o_self.n_scl_y__image = n_scl_y;
-            o_self.s_resolution = o_image.width + 'x' + o_image.height + ' → ' + n_scl_x + 'x' + n_scl_y + ' (grayscale)';
+            o_self.n_scl_x__image = n_out_x;
+            o_self.n_scl_y__image = n_out_y;
+            o_self.s_resolution = n_scl_x + 'x' + n_scl_y + ' sel → ' + n_out_x + 'x' + n_out_y + ' (grayscale)';
+        },
+
+        f_selection_wheel: function (o_evt) {
+            let o_self = this;
+            if (!o_self._o_image__original) return;
+
+            let n_scl_step = 0.05;
+            let n_dir = o_evt.deltaY > 0 ? 1 : -1; // scroll down = zoom out (larger rect)
+
+            let n_old_scl_x = o_self.n_sel_scl_x;
+            let n_old_scl_y = o_self.n_sel_scl_y;
+
+            // scale factor change
+            let n_d_x = o_self.n_scl_x__full * n_scl_step * n_dir;
+            let n_d_y = o_self.n_scl_y__full * n_scl_step * n_dir;
+
+            let n_new_scl_x = Math.max(8, Math.min(o_self.n_scl_x__full, n_old_scl_x + n_d_x));
+            let n_new_scl_y = Math.max(8, Math.min(o_self.n_scl_y__full, n_old_scl_y + n_d_y));
+
+            // keep aspect ratio of full image
+            let n_ratio = o_self.n_scl_x__full / o_self.n_scl_y__full;
+            if (n_new_scl_x / n_new_scl_y > n_ratio) {
+                n_new_scl_x = n_new_scl_y * n_ratio;
+            } else {
+                n_new_scl_y = n_new_scl_x / n_ratio;
+            }
+
+            // zoom centered on mouse position within canvas
+            let el = o_self.$refs.preview_container;
+            let o_rect = el.getBoundingClientRect();
+            let n_mouse_nor_x = (o_evt.clientX - o_rect.left) / o_rect.width;
+            let n_mouse_nor_y = (o_evt.clientY - o_rect.top) / o_rect.height;
+
+            // mouse position in image coordinates
+            let n_mouse_img_x = o_self.n_sel_x + n_mouse_nor_x * n_old_scl_x;
+            let n_mouse_img_y = o_self.n_sel_y + n_mouse_nor_y * n_old_scl_y;
+
+            // new position keeping mouse point stable
+            let n_new_x = n_mouse_img_x - n_mouse_nor_x * n_new_scl_x;
+            let n_new_y = n_mouse_img_y - n_mouse_nor_y * n_new_scl_y;
+
+            // clamp position
+            n_new_x = Math.max(0, Math.min(n_new_x, o_self.n_scl_x__full - n_new_scl_x));
+            n_new_y = Math.max(0, Math.min(n_new_y, o_self.n_scl_y__full - n_new_scl_y));
+
+            o_self.n_sel_x = n_new_x;
+            o_self.n_sel_y = n_new_y;
+            o_self.n_sel_scl_x = n_new_scl_x;
+            o_self.n_sel_scl_y = n_new_scl_y;
+
+            o_self.f_draw_selection();
+            o_self.f_extract_selection();
+        },
+
+        f_selection_drag_start: function (o_evt) {
+            let o_self = this;
+            if (!o_self._o_image__original) return;
+
+            let el = o_self.$refs.preview_container;
+            let o_rect = el.getBoundingClientRect();
+            let n_scl_ratio_x = o_self.n_scl_x__full / o_rect.width;
+            let n_scl_ratio_y = o_self.n_scl_y__full / o_rect.height;
+
+            let n_start_mouse_x = o_evt.clientX;
+            let n_start_mouse_y = o_evt.clientY;
+            let n_start_sel_x = o_self.n_sel_x;
+            let n_start_sel_y = o_self.n_sel_y;
+
+            o_evt.target.setPointerCapture(o_evt.pointerId);
+
+            let f_move = function (o_evt2) {
+                let n_dx = (o_evt2.clientX - n_start_mouse_x) * n_scl_ratio_x;
+                let n_dy = (o_evt2.clientY - n_start_mouse_y) * n_scl_ratio_y;
+
+                // dragging moves in opposite direction (pan the view)
+                let n_new_x = n_start_sel_x - n_dx;
+                let n_new_y = n_start_sel_y - n_dy;
+
+                n_new_x = Math.max(0, Math.min(n_new_x, o_self.n_scl_x__full - o_self.n_sel_scl_x));
+                n_new_y = Math.max(0, Math.min(n_new_y, o_self.n_scl_y__full - o_self.n_sel_scl_y));
+
+                o_self.n_sel_x = n_new_x;
+                o_self.n_sel_y = n_new_y;
+
+                o_self.f_draw_selection();
+            };
+
+            let f_up = function () {
+                document.removeEventListener('pointermove', f_move);
+                document.removeEventListener('pointerup', f_up);
+                o_self.f_extract_selection();
+            };
+
+            document.addEventListener('pointermove', f_move);
+            document.addEventListener('pointerup', f_up);
+        },
+
+        f_selection_reset: function () {
+            let o_self = this;
+            if (!o_self._o_image__original) return;
+            o_self.n_sel_x = 0;
+            o_self.n_sel_y = 0;
+            o_self.n_sel_scl_x = o_self.n_scl_x__full;
+            o_self.n_sel_scl_y = o_self.n_scl_y__full;
+            o_self.f_draw_selection();
+            o_self.f_extract_selection();
         },
 
         f_generate_mesh: function () {
@@ -555,7 +771,7 @@ let o_component__bw_image_to_3d = {
             }
         },
 
-        // drag
+        // overlay drag
         f_drag_start: function (o_evt, s_overlay) {
             let o_self = this;
             o_self._s_drag_overlay = s_overlay;
