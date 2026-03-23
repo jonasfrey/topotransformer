@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BW Image to 3D</title>
+    <link rel="stylesheet" href="bw_image_to_3d.css">
+</head>
+<body>
+    <div id="app">
+        <canvas id="canvas__three"></canvas>
+
+        <div class="toolbar">
+            <div class="toolbar__btn interactable" data-overlay="overlay__image">Image</div>
+            <div class="toolbar__btn interactable" data-overlay="overlay__3d_config">3D Config</div>
+            <div class="toolbar__btn interactable" data-overlay="overlay__scene">Scene</div>
+        </div>
+
+        <div id="overlay__image" class="overlay" style="left:20px;top:60px;">
+            <div class="overlay__header">
+                <span class="overlay__title">Image</span>
+                <span class="overlay__close interactable">&times;</span>
+            </div>
+            <div class="overlay__body">
+                <div class="overlay__section">
+                    <label class="overlay__label">From file</label>
+                    <input type="file" id="input__file" accept="image/*">
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">From URL</label>
+                    <div class="overlay__row">
+                        <input type="text" id="input__url" placeholder="https://example.com/image.jpg">
+                        <div class="btn interactable" id="btn__load_url">Load</div>
+                    </div>
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">Preview</label>
+                    <canvas id="canvas__preview" width="256" height="256"></canvas>
+                    <div id="text__resolution" class="overlay__info">No image loaded</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="overlay__3d_config" class="overlay" style="left:340px;top:60px;">
+            <div class="overlay__header">
+                <span class="overlay__title">3D Config</span>
+                <span class="overlay__close interactable">&times;</span>
+            </div>
+            <div class="overlay__body">
+                <div class="overlay__section">
+                    <label class="overlay__label">Geometry</label>
+                    <select id="select__geometry">
+                        <option value="sphere">Sphere</option>
+                        <option value="cylinder">Cylinder</option>
+                        <option value="plane">Plane</option>
+                    </select>
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">Max resolution</label>
+                    <input type="number" id="input__max_resolution" value="256" min="8" max="1024" step="8">
+                    <div class="overlay__info">Image will be downsampled if larger</div>
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">Offset factor: <span id="text__factor">1.00</span></label>
+                    <input type="range" id="slider__factor" min="0" max="5" step="0.01" value="1">
+                </div>
+                <div class="overlay__section">
+                    <div class="btn interactable" id="btn__generate">Generate 3D</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="overlay__scene" class="overlay" style="left:660px;top:60px;">
+            <div class="overlay__header">
+                <span class="overlay__title">Scene</span>
+                <span class="overlay__close interactable">&times;</span>
+            </div>
+            <div class="overlay__body">
+                <div class="overlay__section">
+                    <label class="overlay__label">Background color</label>
+                    <input type="color" id="input__color_bg" value="#0a0a12">
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">Mesh color</label>
+                    <input type="color" id="input__color_mesh" value="#8b74ea">
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">Wireframe</label>
+                    <input type="checkbox" id="checkbox__wireframe">
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">Ambient light intensity: <span id="text__ambient">0.40</span></label>
+                    <input type="range" id="slider__ambient" min="0" max="2" step="0.01" value="0.4">
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">Directional light intensity: <span id="text__directional">0.80</span></label>
+                    <input type="range" id="slider__directional" min="0" max="3" step="0.01" value="0.8">
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">Auto-rotate</label>
+                    <input type="checkbox" id="checkbox__autorotate" checked>
+                </div>
+                <div class="overlay__section">
+                    <label class="overlay__label">Rotation speed: <span id="text__rotation_speed">1.00</span></label>
+                    <input type="range" id="slider__rotation_speed" min="0" max="5" step="0.01" value="1">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="bw_image_to_3d.js"></script>
+</body>
+</html>

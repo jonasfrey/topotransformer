@@ -1,0 +1,286 @@
+/* Copyright (C) 2026 Jonas Immanuel Frey - Licensed under GPLv2. See LICENSE file for details */
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --c-bg: #0a0a12;
+    --c-surface: rgba(255, 255, 255, 0.07);
+    --c-text: #e2e8f0;
+    --c-text-dim: #a0aec0;
+    --c-text-mute: #4a5568;
+    --c-border: rgba(255, 255, 255, 0.1);
+    --c-accent: #8b74ea;
+    --c-accent-dim: rgba(139, 116, 234, 0.15);
+    --r: 6px;
+    --gap: 0.5rem;
+}
+
+body {
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    background: var(--c-bg);
+    color: var(--c-text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+#app {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+#canvas__three {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* --- toolbar --- */
+.toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    gap: var(--gap);
+    padding: 0.5rem 1rem;
+    background: rgba(10, 10, 18, 0.85);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--c-border);
+    z-index: 1000;
+}
+
+.toolbar__btn {
+    padding: 0.35rem 0.8rem;
+    border-radius: var(--r);
+    border: 1px solid var(--c-border);
+    color: var(--c-text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s;
+}
+
+.toolbar__btn:hover {
+    border-color: var(--c-accent);
+    color: var(--c-accent);
+}
+
+.toolbar__btn.active {
+    background: var(--c-accent-dim);
+    border-color: var(--c-accent);
+    color: var(--c-accent);
+}
+
+/* --- overlay --- */
+.overlay {
+    position: fixed;
+    min-width: 280px;
+    max-width: 400px;
+    background: rgba(10, 10, 18, 0.92);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r);
+    z-index: 900;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.overlay.visible {
+    display: flex;
+}
+
+.overlay__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--c-border);
+    cursor: grab;
+    user-select: none;
+}
+
+.overlay__header:active {
+    cursor: grabbing;
+}
+
+.overlay__title {
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--c-text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.overlay__close {
+    font-size: 18px;
+    color: var(--c-text-mute);
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+.overlay__close:hover {
+    color: var(--c-text);
+}
+
+.overlay__body {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.overlay__section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.overlay__label {
+    font-size: 11px;
+    color: var(--c-text-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.overlay__info {
+    font-size: 11px;
+    color: var(--c-text-mute);
+}
+
+.overlay__row {
+    display: flex;
+    gap: var(--gap);
+    align-items: center;
+}
+
+/* --- form elements --- */
+input[type="text"],
+input[type="number"],
+select {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r);
+    color: var(--c-text);
+    padding: 0.35rem 0.5rem;
+    outline: none;
+    font: inherit;
+    width: 100%;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus {
+    border-color: var(--c-accent);
+}
+
+input[type="file"] {
+    font: inherit;
+    color: var(--c-text-dim);
+    font-size: 12px;
+}
+
+input[type="file"]::file-selector-button {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r);
+    color: var(--c-text-dim);
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    margin-right: 0.5rem;
+}
+
+input[type="range"] {
+    width: 100%;
+    accent-color: var(--c-accent);
+}
+
+input[type="color"] {
+    width: 48px;
+    height: 28px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r);
+    background: none;
+    cursor: pointer;
+    padding: 2px;
+}
+
+input[type="checkbox"] {
+    accent-color: var(--c-accent);
+    width: 16px;
+    height: 16px;
+}
+
+select option {
+    background: var(--c-bg);
+    color: var(--c-text);
+}
+
+.btn {
+    display: inline-block;
+    padding: 0.35rem 0.8rem;
+    background: var(--c-accent-dim);
+    border: 1px solid var(--c-accent);
+    border-radius: var(--r);
+    color: var(--c-accent);
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+}
+
+.btn:hover {
+    opacity: 0.8;
+}
+
+#canvas__preview {
+    width: 100%;
+    max-width: 256px;
+    height: auto;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r);
+    background: #000;
+    image-rendering: pixelated;
+}
+
+.interactable {
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.15s;
+}
+
+.interactable:hover {
+    opacity: 0.7;
+}
+
+/* scrollbar */
+.overlay__body::-webkit-scrollbar {
+    width: 4px;
+}
+
+.overlay__body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.overlay__body::-webkit-scrollbar-thumb {
+    background: var(--c-border);
+    border-radius: 2px;
+}
