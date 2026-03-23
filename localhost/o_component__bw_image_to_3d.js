@@ -154,7 +154,7 @@ let o_component__bw_image_to_3d = {
                             {
                                 class: 'bw3d__section',
                                 a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Offset factor: {{ n_factor.toFixed(2) }} ({{ (n_factor * 20).toFixed(1) }}mm height)' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Offset factor: {{ n_factor.toFixed(2) }} ({{ (n_factor * 10).toFixed(1) }}mm height)' },
                                     { s_tag: 'input', type: 'range', 'v-model.number': 'n_factor', min: '-1', max: '1', step: '0.01', class: 'bw3d__range' },
                                 ],
                             },
@@ -713,7 +713,7 @@ let o_component__bw_image_to_3d = {
             o_geometry.scale(n_scl, n_scl, n_scl);
 
             // displacement in mm: factor 1.0 = 20mm max height
-            let n_mm__displacement = n_factor * 20;
+            let n_mm__displacement = n_factor * 10;
             o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, s_type);
 
             // apply height colormap if enabled
