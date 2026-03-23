@@ -944,8 +944,7 @@ let o_component__bw_image_to_3d = {
             }
 
             // --- bottom vertices: n_cnt__vertex .. 2*n_cnt__vertex-1 ---
-            // chamfer: slope bottom face so the y_min edge is raised,
-            // creating an angled foot for vertical printing
+            // chamfer: small angled strip at y_min edge for vertical printing
             let n_y_min = Infinity;
             let n_y_max = -Infinity;
             for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
@@ -953,17 +952,22 @@ let o_component__bw_image_to_3d = {
                 if (n_y < n_y_min) n_y_min = n_y;
                 if (n_y > n_y_max) n_y_max = n_y;
             }
-            let n_y_span = n_y_max - n_y_min;
-            // chamfer rise: how much z is added at y_min edge
-            // full span * tan(angle) gives the total z rise across the bottom face
             let n_rad__chamfer = (n_deg__chamfer || 0) * Math.PI / 180;
-            let n_z_rise = n_y_span * Math.tan(n_rad__chamfer);
+            // chamfer height = baseplate thickness, depth derived from angle
+            let n_chamfer_height = n_thickness;
+            let n_chamfer_depth = (n_rad__chamfer > 0) ? n_chamfer_height / Math.tan(n_rad__chamfer) : 0;
 
             for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
                 let n_y = o_pos__top.getY(n_idx);
-                // linear interpolation: y_min gets full rise, y_max gets 0
-                let n_t = (n_y_max - n_y) / n_y_span;
-                let n_z = n_z_bottom + n_t * n_z_rise;
+                let n_z = n_z_bottom;
+                if (n_chamfer_depth > 0) {
+                    // distance from y_min edge
+                    let n_dist = n_y - n_y_min;
+                    if (n_dist < n_chamfer_depth) {
+                        // linear ramp: full rise at y_min, zero at y_min + depth
+                        n_z = n_z_bottom + n_chamfer_height * (1 - n_dist / n_chamfer_depth);
+                    }
+                }
                 a_n__pos.push(o_pos__top.getX(n_idx), n_y, n_z);
             }
 
