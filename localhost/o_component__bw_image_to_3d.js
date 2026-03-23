@@ -688,7 +688,10 @@ let o_component__bw_image_to_3d = {
             } else if (s_type === 'cylinder') {
                 o_geometry = new THREE.CylinderGeometry(1, 1, 2, n_scl_x - 1, n_scl_y - 1, true);
             } else if (s_type === 'plane') {
-                o_geometry = new THREE.PlaneGeometry(2, 2, n_scl_x - 1, n_scl_y - 1);
+                let n_ratio = n_scl_x / n_scl_y;
+                let n_plane_x = n_ratio >= 1 ? 2 : 2 * n_ratio;
+                let n_plane_y = n_ratio >= 1 ? 2 / n_ratio : 2;
+                o_geometry = new THREE.PlaneGeometry(n_plane_x, n_plane_y, n_scl_x - 1, n_scl_y - 1);
             }
 
             o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_factor, s_type);
