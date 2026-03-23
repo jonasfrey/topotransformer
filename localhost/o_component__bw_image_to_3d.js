@@ -82,6 +82,14 @@ let o_component__bw_image_to_3d = {
                             {
                                 class: 'bw3d__section',
                                 a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Max resolution' },
+                                    { s_tag: 'input', type: 'number', ':value': 'n_max_resolution', 'v-on:change': 'f_set_max_resolution(Number($event.target.value))', min: '8', max: '5000', step: '8', class: 'bw3d__input' },
+                                    { s_tag: 'div', class: 'bw3d__info', innerText: 'Image will be downsampled if larger' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                a_o: [
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Preview' },
                                     { s_tag: 'canvas', class: 'bw3d__preview', ref: 'canvas__preview', width: '256', height: '256' },
                                     { s_tag: 'div', class: 'bw3d__info', innerText: '{{ s_resolution }}' },
@@ -125,14 +133,6 @@ let o_component__bw_image_to_3d = {
                                             { s_tag: 'option', value: 'plane', innerText: 'Plane' },
                                         ],
                                     },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Max resolution' },
-                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_max_resolution', min: '8', max: '5000', step: '8', class: 'bw3d__input' },
-                                    { s_tag: 'div', class: 'bw3d__info', innerText: 'Image will be downsampled if larger' },
                                 ],
                             },
                             {
@@ -263,6 +263,7 @@ let o_component__bw_image_to_3d = {
             _o_light__ambient: null,
             _o_light__directional: null,
             _o_mesh: null,
+            _o_image__original: null,
             _n_id__animation: null,
             // drag state
             _s_drag_overlay: null,
@@ -355,8 +356,18 @@ let o_component__bw_image_to_3d = {
             o_image.src = s_url;
         },
 
+        f_set_max_resolution: function (n_val) {
+            let o_self = this;
+            o_self.n_max_resolution = n_val;
+            if (o_self._o_image__original) {
+                o_self.f_process_image(o_self._o_image__original);
+                o_self.f_generate_mesh();
+            }
+        },
+
         f_process_image: function (o_image) {
             let o_self = this;
+            o_self._o_image__original = o_image;
             let n_scl_x = o_image.width;
             let n_scl_y = o_image.height;
             let n_max = o_self.n_max_resolution;
