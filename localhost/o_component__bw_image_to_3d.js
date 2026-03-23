@@ -154,8 +154,8 @@ let o_component__bw_image_to_3d = {
                             {
                                 class: 'bw3d__section',
                                 a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Offset factor: {{ n_factor.toFixed(2) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_factor', min: '0', max: '5', step: '0.01', class: 'bw3d__range' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Offset factor: {{ n_factor.toFixed(2) }} ({{ (n_factor * 20).toFixed(1) }}mm height)' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_factor', min: '-1', max: '1', step: '0.01', class: 'bw3d__range' },
                                 ],
                             },
                             {
@@ -291,7 +291,7 @@ let o_component__bw_image_to_3d = {
             // 3d config
             s_type__geometry: 'sphere',
             n_max_resolution: 5000,
-            n_factor: 1,
+            n_factor: 0.5,
             n_mm__max_width: 170,
             n_mm__baseplate: 5,
             // scene
@@ -694,9 +694,7 @@ let o_component__bw_image_to_3d = {
                 o_geometry = new THREE.PlaneGeometry(n_plane_x, n_plane_y, n_scl_x - 1, n_scl_y - 1);
             }
 
-            o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_factor, s_type);
-
-            // scale so max dimension = n_mm__max_width mm
+            // scale so max dimension = n_mm__max_width mm (before displacement)
             o_geometry.computeBoundingBox();
             let o_box = o_geometry.boundingBox;
             let n_size_x = o_box.max.x - o_box.min.x;
@@ -705,6 +703,10 @@ let o_component__bw_image_to_3d = {
             let n_max_dim = Math.max(n_size_x, n_size_y, n_size_z);
             let n_scl = o_self.n_mm__max_width / n_max_dim;
             o_geometry.scale(n_scl, n_scl, n_scl);
+
+            // displacement in mm: factor 1.0 = 20mm max height
+            let n_mm__displacement = n_factor * 20;
+            o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, s_type);
 
             o_geometry.computeVertexNormals();
 
