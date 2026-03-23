@@ -310,7 +310,7 @@ let o_component__bw_image_to_3d = {
             n_factor: 0.5,
             n_mm__max_width: 170,
             n_mm__baseplate: 5,
-            n_deg__chamfer: 30,
+            n_deg__chamfer: 60,
             // scene
             s_color__bg: '#0a0a12',
             s_color__mesh: '#8b74ea',
