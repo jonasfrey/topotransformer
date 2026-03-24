@@ -105,7 +105,8 @@ let o_component__map = {
     methods: {
         f_a_o_tile__visible: function () {
             let o_map = this._o_map;
-            let n_zoom = o_map.getZoom();
+            // round to integer zoom — tiles only exist at whole zoom levels
+            let n_zoom = Math.round(o_map.getZoom());
             let o_bounds = o_map.getBounds();
             let o_pixel__nw = o_map.project(o_bounds.getNorthWest(), n_zoom);
             let o_pixel__se = o_map.project(o_bounds.getSouthEast(), n_zoom);
@@ -114,6 +115,13 @@ let o_component__map = {
             let n_tile_y__min = Math.floor(o_pixel__nw.y / 256);
             let n_tile_x__max = Math.floor(o_pixel__se.x / 256);
             let n_tile_y__max = Math.floor(o_pixel__se.y / 256);
+
+            // clamp tile coords to valid range for this zoom level
+            let n_tile__max = (1 << n_zoom) - 1;
+            n_tile_x__min = Math.max(0, n_tile_x__min);
+            n_tile_y__min = Math.max(0, n_tile_y__min);
+            n_tile_x__max = Math.min(n_tile__max, n_tile_x__max);
+            n_tile_y__max = Math.min(n_tile__max, n_tile_y__max);
 
             let a_o_tile = [];
             for (let n_y = n_tile_y__min; n_y <= n_tile_y__max; n_y++) {
@@ -127,17 +135,27 @@ let o_component__map = {
                 n_tile_y__min,
                 n_tile_x__max,
                 n_tile_y__max,
+                n_zoom,
                 o_pixel__nw,
                 o_pixel__se,
             };
         },
 
         f_image__from_tile: function (n_x, n_y, n_zoom) {
-            return new Promise(function (resolve, reject) {
+            return new Promise(function (resolve) {
                 let o_img = new Image();
                 o_img.crossOrigin = 'anonymous';
                 o_img.onload = function () { resolve(o_img); };
-                o_img.onerror = function () { reject(new Error('Tile load failed: ' + n_x + '/' + n_y)); };
+                o_img.onerror = function () {
+                    // return a blank 256x256 canvas (sea level: R=128,G=0,B=0 → 0m)
+                    let o_canvas = document.createElement('canvas');
+                    o_canvas.width = 256;
+                    o_canvas.height = 256;
+                    let o_ctx = o_canvas.getContext('2d');
+                    o_ctx.fillStyle = '#800000';
+                    o_ctx.fillRect(0, 0, 256, 256);
+                    resolve(o_canvas);
+                };
                 o_img.src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + n_zoom + '/' + n_x + '/' + n_y + '.png';
             });
         },
