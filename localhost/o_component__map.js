@@ -39,6 +39,22 @@ let o_component__map = {
                     },
                 ],
             },
+            // zoom info bar
+            {
+                s_tag: 'div',
+                class: 'map__zoom_info',
+                a_o: [
+                    {
+                        s_tag: 'span',
+                        innerText: 'Zoom {{ n_zoom }} — ~{{ n_m_per_pixel }}m/px',
+                    },
+                    {
+                        s_tag: 'span',
+                        ':class': "'map__zoom_quality ' + s_quality_class",
+                        innerText: '{{ s_quality }}',
+                    },
+                ],
+            },
             // crosshair overlay to show export bounds
             {
                 s_tag: 'div',
@@ -52,6 +68,10 @@ let o_component__map = {
             b_exporting: false,
             s_status: '',
             n_sz__tile: 256,
+            n_zoom: 7,
+            n_m_per_pixel: 1200,
+            s_quality: '',
+            s_quality_class: '',
         };
     },
     mounted: function () {
@@ -92,6 +112,9 @@ let o_component__map = {
 
             self._o_map = o_map;
 
+            o_map.on('zoomend moveend', function () { self.f_update_zoom_info(); });
+            self.f_update_zoom_info();
+
             // fix leaflet sizing after vue mount
             setTimeout(function () { o_map.invalidateSize(); }, 100);
         });
@@ -103,6 +126,30 @@ let o_component__map = {
         }
     },
     methods: {
+        f_update_zoom_info: function () {
+            if (!this._o_map) return;
+            let n_zoom = Math.round(this._o_map.getZoom());
+            // meters per pixel at equator: 40075016.686 / (256 * 2^zoom)
+            // approximate for mid-latitudes by using center lat
+            let n_lat = this._o_map.getCenter().lat;
+            let n_m_per_pixel = 40075016.686 * Math.cos(n_lat * Math.PI / 180) / (256 * Math.pow(2, n_zoom));
+            this.n_zoom = n_zoom;
+            this.n_m_per_pixel = Math.round(n_m_per_pixel);
+
+            // SRTM native resolution is ~30m, so beyond zoom 12 (~38m/px) data is interpolated
+            if (n_m_per_pixel > 90) {
+                this.s_quality = 'native SRTM data (~30m)';
+                this.s_quality_class = 'quality_native';
+            } else if (n_m_per_pixel > 20) {
+                this.s_quality = 'near native — slight interpolation';
+                this.s_quality_class = 'quality_good';
+            } else {
+                let n_factor = Math.round(30 / n_m_per_pixel);
+                this.s_quality = 'interpolated ~' + n_factor + 'x beyond native 30m';
+                this.s_quality_class = 'quality_interpolated';
+            }
+        },
+
         f_a_o_tile__visible: function () {
             let o_map = this._o_map;
             // round to integer zoom — tiles only exist at whole zoom levels
