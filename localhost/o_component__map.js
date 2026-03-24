@@ -188,23 +188,35 @@ let o_component__map = {
             };
         },
 
-        f_image__from_tile: function (n_x, n_y, n_zoom) {
-            return new Promise(function (resolve) {
-                let o_img = new Image();
-                o_img.crossOrigin = 'anonymous';
-                o_img.onload = function () { resolve(o_img); };
-                o_img.onerror = function () {
-                    // return a blank 256x256 canvas (sea level: R=128,G=0,B=0 → 0m)
-                    let o_canvas = document.createElement('canvas');
-                    o_canvas.width = 256;
-                    o_canvas.height = 256;
-                    let o_ctx = o_canvas.getContext('2d');
-                    o_ctx.fillStyle = '#800000';
-                    o_ctx.fillRect(0, 0, 256, 256);
-                    resolve(o_canvas);
-                };
-                o_img.src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + n_zoom + '/' + n_x + '/' + n_y + '.png';
-            });
+        f_o_fallback_tile: function () {
+            // sea level tile: R=128,G=0,B=0 → 0m in terrarium encoding
+            let o_canvas = document.createElement('canvas');
+            o_canvas.width = 256;
+            o_canvas.height = 256;
+            let o_ctx = o_canvas.getContext('2d');
+            o_ctx.fillStyle = '#800000';
+            o_ctx.fillRect(0, 0, 256, 256);
+            return o_canvas;
+        },
+
+        f_image__from_tile: async function (n_x, n_y, n_zoom) {
+            let self = this;
+            let s_url = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + n_zoom + '/' + n_x + '/' + n_y + '.png';
+            try {
+                let o_resp = await fetch(s_url);
+                if (!o_resp.ok) return self.f_o_fallback_tile();
+                let o_blob = await o_resp.blob();
+                let o_bitmap = await createImageBitmap(o_blob);
+                // draw to canvas to get raw pixel access without CORS tainting
+                let o_canvas = document.createElement('canvas');
+                o_canvas.width = 256;
+                o_canvas.height = 256;
+                let o_ctx = o_canvas.getContext('2d');
+                o_ctx.drawImage(o_bitmap, 0, 0);
+                return o_canvas;
+            } catch (o_err) {
+                return self.f_o_fallback_tile();
+            }
         },
 
         f_n_elevation__from_rgb: function (n_r, n_g, n_b) {
@@ -297,6 +309,8 @@ let o_component__map = {
                 if (n_elevation < n_elevation__min) n_elevation__min = n_elevation;
                 if (n_elevation > n_elevation__max) n_elevation__max = n_elevation;
             }
+
+            console.log('Elevation min:', n_elevation__min, 'max:', n_elevation__max, 'pixels:', n_cnt__pixel);
 
             // normalize to 0-255 grayscale
             let n_range = n_elevation__max - n_elevation__min;
