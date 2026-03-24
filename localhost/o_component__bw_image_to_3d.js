@@ -375,7 +375,7 @@ let o_component__bw_image_to_3d = {
             n_scl_x__full: 0,
             n_scl_y__full: 0,
             // 3d config
-            s_type__geometry: 'sphere',
+            s_type__geometry: 'plane',
             n_max_resolution: 5000,
             n_factor: 0.5,
             n_mm__max_width: 240,
