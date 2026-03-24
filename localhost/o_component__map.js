@@ -22,8 +22,14 @@ let o_component__map = {
                     {
                         s_tag: 'div',
                         ':class': "'bw3d__toolbar_btn interactable' + (b_exporting ? ' disabled' : '')",
-                        'v-on:click': 'f_export',
+                        'v-on:click': 'f_export(false)',
                         innerText: "{{ b_exporting ? 'Exporting...' : 'Export' }}",
+                    },
+                    {
+                        s_tag: 'div',
+                        ':class': "'bw3d__toolbar_btn interactable' + (b_exporting ? ' disabled' : '')",
+                        'v-on:click': 'f_export(true)',
+                        innerText: "{{ b_exporting ? 'Exporting...' : 'Export & Open in 3D' }}",
                     },
                     {
                         s_tag: 'div',
@@ -138,130 +144,138 @@ let o_component__map = {
             return (n_r * 256 + n_g + n_b / 256) - 32768;
         },
 
-        f_export: async function () {
+        f_s_data_url__from_elevation: async function () {
+            let o_visible = this.f_a_o_tile__visible();
+            let a_o_tile = o_visible.a_o_tile;
+            let n_cnt__tile = a_o_tile.length;
+
+            if (n_cnt__tile > 400) {
+                throw new Error('Too many tiles (' + n_cnt__tile + '). Zoom in.');
+            }
+
+            this.s_status = 'Fetching ' + n_cnt__tile + ' elevation tile(s)...';
+
+            // fetch all tiles in parallel (batched to avoid hammering)
+            let n_sz__batch = 16;
+            let a_o_result = [];
+            for (let n_i = 0; n_i < a_o_tile.length; n_i += n_sz__batch) {
+                let a_o_batch = a_o_tile.slice(n_i, n_i + n_sz__batch);
+                let a_o_promise = a_o_batch.map(function (o_tile) {
+                    return this.f_image__from_tile(o_tile.n_x, o_tile.n_y, o_tile.n_zoom);
+                }.bind(this));
+                let a_o_img = await Promise.all(a_o_promise);
+                for (let n_j = 0; n_j < a_o_batch.length; n_j++) {
+                    a_o_result.push({ o_tile: a_o_batch[n_j], o_img: a_o_img[n_j] });
+                }
+                this.s_status = 'Fetched ' + a_o_result.length + '/' + n_cnt__tile + ' tiles...';
+            }
+
+            this.s_status = 'Compositing elevation data...';
+
+            // composite tiles into a single canvas
+            let n_tile_x__min = o_visible.n_tile_x__min;
+            let n_tile_y__min = o_visible.n_tile_y__min;
+            let n_tile_x__max = o_visible.n_tile_x__max;
+            let n_tile_y__max = o_visible.n_tile_y__max;
+            let n_cnt__col = n_tile_x__max - n_tile_x__min + 1;
+            let n_cnt__row = n_tile_y__max - n_tile_y__min + 1;
+            let n_scl_x__full = n_cnt__col * 256;
+            let n_scl_y__full = n_cnt__row * 256;
+
+            let o_canvas__src = document.createElement('canvas');
+            o_canvas__src.width = n_scl_x__full;
+            o_canvas__src.height = n_scl_y__full;
+            let o_ctx__src = o_canvas__src.getContext('2d');
+
+            for (let n_i = 0; n_i < a_o_result.length; n_i++) {
+                let o_tile = a_o_result[n_i].o_tile;
+                let o_img = a_o_result[n_i].o_img;
+                let n_off_x = (o_tile.n_x - n_tile_x__min) * 256;
+                let n_off_y = (o_tile.n_y - n_tile_y__min) * 256;
+                o_ctx__src.drawImage(o_img, n_off_x, n_off_y);
+            }
+
+            // crop to actual viewport pixel bounds
+            let o_pixel__nw = o_visible.o_pixel__nw;
+            let o_pixel__se = o_visible.o_pixel__se;
+            let n_crop_x = o_pixel__nw.x - n_tile_x__min * 256;
+            let n_crop_y = o_pixel__nw.y - n_tile_y__min * 256;
+            let n_crop_scl_x = o_pixel__se.x - o_pixel__nw.x;
+            let n_crop_scl_y = o_pixel__se.y - o_pixel__nw.y;
+
+            // read RGB data from cropped region
+            let o_image_data__src = o_ctx__src.getImageData(
+                Math.floor(n_crop_x), Math.floor(n_crop_y),
+                Math.floor(n_crop_scl_x), Math.floor(n_crop_scl_y)
+            );
+            let a_n__pixel = o_image_data__src.data;
+
+            // decode elevations and find min/max
+            let n_cnt__pixel = Math.floor(n_crop_scl_x) * Math.floor(n_crop_scl_y);
+            let a_n__elevation = new Float32Array(n_cnt__pixel);
+            let n_elevation__min = Infinity;
+            let n_elevation__max = -Infinity;
+
+            for (let n_i = 0; n_i < n_cnt__pixel; n_i++) {
+                let n_off = n_i * 4;
+                let n_elevation = this.f_n_elevation__from_rgb(
+                    a_n__pixel[n_off],
+                    a_n__pixel[n_off + 1],
+                    a_n__pixel[n_off + 2]
+                );
+                a_n__elevation[n_i] = n_elevation;
+                if (n_elevation < n_elevation__min) n_elevation__min = n_elevation;
+                if (n_elevation > n_elevation__max) n_elevation__max = n_elevation;
+            }
+
+            // normalize to 0-255 grayscale
+            let n_range = n_elevation__max - n_elevation__min;
+            if (n_range === 0) n_range = 1;
+
+            let n_scl_x__out = Math.floor(n_crop_scl_x);
+            let n_scl_y__out = Math.floor(n_crop_scl_y);
+            let o_canvas__out = document.createElement('canvas');
+            o_canvas__out.width = n_scl_x__out;
+            o_canvas__out.height = n_scl_y__out;
+            let o_ctx__out = o_canvas__out.getContext('2d');
+            let o_image_data__out = o_ctx__out.createImageData(n_scl_x__out, n_scl_y__out);
+            let a_n__out = o_image_data__out.data;
+
+            for (let n_i = 0; n_i < n_cnt__pixel; n_i++) {
+                let n_val = Math.round(((a_n__elevation[n_i] - n_elevation__min) / n_range) * 255);
+                let n_off = n_i * 4;
+                a_n__out[n_off] = n_val;
+                a_n__out[n_off + 1] = n_val;
+                a_n__out[n_off + 2] = n_val;
+                a_n__out[n_off + 3] = 255;
+            }
+
+            o_ctx__out.putImageData(o_image_data__out, 0, 0);
+
+            this.s_status = 'Exported ' + n_scl_x__out + 'x' + n_scl_y__out + 'px (' + Math.round(n_elevation__min) + 'm – ' + Math.round(n_elevation__max) + 'm)';
+
+            return o_canvas__out.toDataURL('image/png');
+        },
+
+        f_export: async function (b_open_3d) {
             if (this.b_exporting || !this._o_map) return;
             this.b_exporting = true;
             this.s_status = 'Calculating visible tiles...';
 
             try {
-                let o_visible = this.f_a_o_tile__visible();
-                let a_o_tile = o_visible.a_o_tile;
-                let n_cnt__tile = a_o_tile.length;
+                let s_data_url = await this.f_s_data_url__from_elevation();
 
-                if (n_cnt__tile > 400) {
-                    this.s_status = 'Too many tiles (' + n_cnt__tile + '). Zoom in.';
-                    this.b_exporting = false;
-                    return;
+                if (b_open_3d) {
+                    // store data URL on global state and navigate to 3d page
+                    globalThis.o_state.s_data_url__map_elevation = s_data_url;
+                    this.$router.push('/bw-image-to-3d');
+                } else {
+                    // trigger download
+                    let o_a = document.createElement('a');
+                    o_a.download = 'elevation.png';
+                    o_a.href = s_data_url;
+                    o_a.click();
                 }
-
-                this.s_status = 'Fetching ' + n_cnt__tile + ' elevation tile(s)...';
-
-                // fetch all tiles in parallel (batched to avoid hammering)
-                let n_sz__batch = 16;
-                let a_o_result = [];
-                for (let n_i = 0; n_i < a_o_tile.length; n_i += n_sz__batch) {
-                    let a_o_batch = a_o_tile.slice(n_i, n_i + n_sz__batch);
-                    let a_o_promise = a_o_batch.map(function (o_tile) {
-                        return this.f_image__from_tile(o_tile.n_x, o_tile.n_y, o_tile.n_zoom);
-                    }.bind(this));
-                    let a_o_img = await Promise.all(a_o_promise);
-                    for (let n_j = 0; n_j < a_o_batch.length; n_j++) {
-                        a_o_result.push({ o_tile: a_o_batch[n_j], o_img: a_o_img[n_j] });
-                    }
-                    this.s_status = 'Fetched ' + a_o_result.length + '/' + n_cnt__tile + ' tiles...';
-                }
-
-                this.s_status = 'Compositing elevation data...';
-
-                // composite tiles into a single canvas
-                let n_tile_x__min = o_visible.n_tile_x__min;
-                let n_tile_y__min = o_visible.n_tile_y__min;
-                let n_tile_x__max = o_visible.n_tile_x__max;
-                let n_tile_y__max = o_visible.n_tile_y__max;
-                let n_cnt__col = n_tile_x__max - n_tile_x__min + 1;
-                let n_cnt__row = n_tile_y__max - n_tile_y__min + 1;
-                let n_scl_x__full = n_cnt__col * 256;
-                let n_scl_y__full = n_cnt__row * 256;
-
-                let o_canvas__src = document.createElement('canvas');
-                o_canvas__src.width = n_scl_x__full;
-                o_canvas__src.height = n_scl_y__full;
-                let o_ctx__src = o_canvas__src.getContext('2d');
-
-                for (let n_i = 0; n_i < a_o_result.length; n_i++) {
-                    let o_tile = a_o_result[n_i].o_tile;
-                    let o_img = a_o_result[n_i].o_img;
-                    let n_off_x = (o_tile.n_x - n_tile_x__min) * 256;
-                    let n_off_y = (o_tile.n_y - n_tile_y__min) * 256;
-                    o_ctx__src.drawImage(o_img, n_off_x, n_off_y);
-                }
-
-                // crop to actual viewport pixel bounds
-                let o_pixel__nw = o_visible.o_pixel__nw;
-                let o_pixel__se = o_visible.o_pixel__se;
-                let n_crop_x = o_pixel__nw.x - n_tile_x__min * 256;
-                let n_crop_y = o_pixel__nw.y - n_tile_y__min * 256;
-                let n_crop_scl_x = o_pixel__se.x - o_pixel__nw.x;
-                let n_crop_scl_y = o_pixel__se.y - o_pixel__nw.y;
-
-                // read RGB data from cropped region
-                let o_image_data__src = o_ctx__src.getImageData(
-                    Math.floor(n_crop_x), Math.floor(n_crop_y),
-                    Math.floor(n_crop_scl_x), Math.floor(n_crop_scl_y)
-                );
-                let a_n__pixel = o_image_data__src.data;
-
-                // decode elevations and find min/max
-                let n_cnt__pixel = Math.floor(n_crop_scl_x) * Math.floor(n_crop_scl_y);
-                let a_n__elevation = new Float32Array(n_cnt__pixel);
-                let n_elevation__min = Infinity;
-                let n_elevation__max = -Infinity;
-
-                for (let n_i = 0; n_i < n_cnt__pixel; n_i++) {
-                    let n_off = n_i * 4;
-                    let n_elevation = this.f_n_elevation__from_rgb(
-                        a_n__pixel[n_off],
-                        a_n__pixel[n_off + 1],
-                        a_n__pixel[n_off + 2]
-                    );
-                    a_n__elevation[n_i] = n_elevation;
-                    if (n_elevation < n_elevation__min) n_elevation__min = n_elevation;
-                    if (n_elevation > n_elevation__max) n_elevation__max = n_elevation;
-                }
-
-                this.s_status = 'Elevation range: ' + Math.round(n_elevation__min) + 'm to ' + Math.round(n_elevation__max) + 'm';
-
-                // normalize to 0-255 grayscale
-                let n_range = n_elevation__max - n_elevation__min;
-                if (n_range === 0) n_range = 1;
-
-                let n_scl_x__out = Math.floor(n_crop_scl_x);
-                let n_scl_y__out = Math.floor(n_crop_scl_y);
-                let o_canvas__out = document.createElement('canvas');
-                o_canvas__out.width = n_scl_x__out;
-                o_canvas__out.height = n_scl_y__out;
-                let o_ctx__out = o_canvas__out.getContext('2d');
-                let o_image_data__out = o_ctx__out.createImageData(n_scl_x__out, n_scl_y__out);
-                let a_n__out = o_image_data__out.data;
-
-                for (let n_i = 0; n_i < n_cnt__pixel; n_i++) {
-                    let n_val = Math.round(((a_n__elevation[n_i] - n_elevation__min) / n_range) * 255);
-                    let n_off = n_i * 4;
-                    a_n__out[n_off] = n_val;
-                    a_n__out[n_off + 1] = n_val;
-                    a_n__out[n_off + 2] = n_val;
-                    a_n__out[n_off + 3] = 255;
-                }
-
-                o_ctx__out.putImageData(o_image_data__out, 0, 0);
-
-                // trigger download
-                let o_a = document.createElement('a');
-                o_a.download = 'elevation_' + n_scl_x__out + 'x' + n_scl_y__out + '.png';
-                o_a.href = o_canvas__out.toDataURL('image/png');
-                o_a.click();
-
-                this.s_status = 'Exported ' + n_scl_x__out + 'x' + n_scl_y__out + 'px (' + Math.round(n_elevation__min) + 'm – ' + Math.round(n_elevation__max) + 'm)';
             } catch (o_error) {
                 this.s_status = 'Error: ' + o_error.message;
                 console.error(o_error);

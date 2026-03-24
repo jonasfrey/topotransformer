@@ -1393,6 +1393,15 @@ let o_component__bw_image_to_3d = {
     },
     mounted: function () {
         this.f_init_three();
+        // auto-load elevation image passed from map page
+        let s_data_url = globalThis.o_state.s_data_url__map_elevation;
+        if (s_data_url) {
+            delete globalThis.o_state.s_data_url__map_elevation;
+            let o_self = this;
+            let o_image = new Image();
+            o_image.onload = function () { o_self.f_process_image(o_image); };
+            o_image.src = s_data_url;
+        }
     },
     beforeUnmount: function () {
         if (this._n_id__animation) cancelAnimationFrame(this._n_id__animation);
