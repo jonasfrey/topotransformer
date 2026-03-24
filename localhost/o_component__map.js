@@ -206,13 +206,20 @@ let o_component__map = {
                 let o_resp = await fetch(s_url);
                 if (!o_resp.ok) return self.f_o_fallback_tile();
                 let o_blob = await o_resp.blob();
-                let o_bitmap = await createImageBitmap(o_blob);
-                // draw to canvas to get raw pixel access without CORS tainting
+                // use blob URL + Image to avoid createImageBitmap color space conversion
+                let s_blob_url = URL.createObjectURL(o_blob);
+                let o_img = await new Promise(function (resolve, reject) {
+                    let o = new Image();
+                    o.onload = function () { resolve(o); };
+                    o.onerror = function () { reject(); };
+                    o.src = s_blob_url;
+                });
+                URL.revokeObjectURL(s_blob_url);
                 let o_canvas = document.createElement('canvas');
                 o_canvas.width = 256;
                 o_canvas.height = 256;
                 let o_ctx = o_canvas.getContext('2d');
-                o_ctx.drawImage(o_bitmap, 0, 0);
+                o_ctx.drawImage(o_img, 0, 0);
                 return o_canvas;
             } catch (o_err) {
                 return self.f_o_fallback_tile();
