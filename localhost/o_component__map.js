@@ -80,6 +80,9 @@ let o_component__map = {
                 center: [47.0, 10.0],
                 zoom: 7,
                 zoomControl: true,
+                zoomSnap: 0.25,
+                zoomDelta: 0.25,
+                wheelPxPerZoomLevel: 120,
             });
 
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
