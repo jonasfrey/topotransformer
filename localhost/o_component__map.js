@@ -291,6 +291,8 @@ let o_component__map = {
                     a_n__pixel[n_off + 1],
                     a_n__pixel[n_off + 2]
                 );
+                // clamp to 0m — discard ocean bathymetry
+                if (n_elevation < 0) n_elevation = 0;
                 a_n__elevation[n_i] = n_elevation;
                 if (n_elevation < n_elevation__min) n_elevation__min = n_elevation;
                 if (n_elevation > n_elevation__max) n_elevation__max = n_elevation;
