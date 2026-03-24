@@ -29,6 +29,7 @@ import {
 import { o_component__data } from './o_component__data.js';
 import { o_component__filebrowser } from './o_component__filebrowser.js';
 import { o_component__bw_image_to_3d } from './o_component__bw_image_to_3d.js';
+import { o_component__map } from './o_component__map.js';
 import './css_helper.js';
 
 import { o_logmsg__run_command } from "./runtimedata.js";
@@ -56,6 +57,11 @@ let o_state = reactive({
             path: '/bw-image-to-3d',
             name: 'bw-image-to-3d',
             component: markRaw(o_component__bw_image_to_3d),
+        },
+        {
+            path: '/map',
+            name: 'map',
+            component: markRaw(o_component__map),
         },
     ],
     a_o_model,
