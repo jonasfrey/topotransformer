@@ -1385,29 +1385,62 @@ let o_component__bw_image_to_3d = {
             let n_cos = Math.cos(n_rad__diagonal);
             let n_sin = Math.sin(n_rad__diagonal);
 
-            // scale factor limited by plate dimensions and max text width
-            let n_rotated_w = n_text_width_ref * n_cos + n_text_height_ref * n_sin;
-            let n_rotated_h = n_text_width_ref * n_sin + n_text_height_ref * n_cos;
-            let n_scl_fit = Math.min(
-                n_mm_plate_x / n_rotated_w,
-                n_mm_plate_y / n_rotated_h
-            );
-
-            let n_font_final = n_font_ref * n_scl_fit;
-
             // convert mm scale to pixel scale: pixels per mm
             let n_px_per_mm_x = n_col / n_mm_plate_x;
             let n_px_per_mm_y = n_row / n_mm_plate_y;
             let n_px_per_mm = (n_px_per_mm_x + n_px_per_mm_y) / 2;
+
+            // pre-calculate ruler dimensions so text can avoid it
+            let n_margin = Math.round(Math.min(n_col, n_row) * 0.04);
+            let n_bar_height = Math.max(3, Math.round(n_row * 0.012));
+            let n_font__ruler = Math.max(8, Math.round(n_row * 0.035));
+            let n_ruler_zone_h = 0; // total pixel height reserved for ruler in bottom-left
+            let n_ruler_zone_w = 0;
+            let n_m__ruler = 0;
+            let n_px__ruler = 0;
+            let s_ruler = '';
+            if (n_m__real_width > 0) {
+                n_m__ruler = this.f_n_m__ruler_distance(n_m__real_width);
+                let n_mm__ruler = n_m__ruler / n_m__real_width * n_mm_plate_x;
+                n_px__ruler = n_mm__ruler * n_px_per_mm_x;
+                if (n_m__ruler >= 1000) {
+                    s_ruler = (n_m__ruler / 1000) + ' km';
+                } else {
+                    s_ruler = n_m__ruler + ' m';
+                }
+                n_ruler_zone_h = n_margin + n_font__ruler + n_bar_height * 2 + n_margin;
+                n_ruler_zone_w = n_margin + n_px__ruler + n_margin;
+            }
+
+            // shrink available plate area for text to avoid ruler zone
+            // ruler is in bottom-left corner (when viewed from below) = bottom-right in canvas
+            // reduce effective plate height to leave room at the bottom
+            let n_mm_plate_y__text = n_mm_plate_y;
+            if (n_ruler_zone_h > 0) {
+                n_mm_plate_y__text = n_mm_plate_y - n_ruler_zone_h / n_px_per_mm_y;
+            }
+            // recompute diagonal for the reduced text area
+            let n_rad__diagonal_text = Math.atan2(n_mm_plate_y__text, n_mm_plate_x);
+            let n_cos_t = Math.cos(n_rad__diagonal_text);
+            let n_sin_t = Math.sin(n_rad__diagonal_text);
+            let n_rotated_w = n_text_width_ref * n_cos_t + n_text_height_ref * n_sin_t;
+            let n_rotated_h = n_text_width_ref * n_sin_t + n_text_height_ref * n_cos_t;
+            let n_scl_fit = Math.min(
+                n_mm_plate_x / n_rotated_w,
+                n_mm_plate_y__text / n_rotated_h
+            );
+
+            let n_font_final = n_font_ref * n_scl_fit;
             let n_font_px = n_font_final * n_px_per_mm;
 
-            // draw rotated text centered on canvas
+            // draw rotated text centered in the upper portion of the canvas
+            let n_row__text_center = (n_row - n_ruler_zone_h) / 2;
             o_ctx.clearRect(0, 0, n_col, n_row);
             o_ctx.save();
-            o_ctx.translate(n_col / 2, n_row / 2);
+            o_ctx.translate(n_col / 2, n_row__text_center);
             // mirror X so text reads correctly when viewed from below
             o_ctx.scale(-1, 1);
-            o_ctx.rotate(-n_rad__diagonal);
+            o_ctx.rotate(-n_rad__diagonal_text);
             o_ctx.font = n_font_px + 'px sans-serif';
             o_ctx.fillStyle = 'white';
             o_ctx.textAlign = 'center';
@@ -1416,24 +1449,10 @@ let o_component__bw_image_to_3d = {
             o_ctx.restore();
 
             // draw ruler bar in bottom-right corner (mirrored = bottom-left when viewed from below)
-            if (n_m__real_width > 0) {
-                let n_m__ruler = this.f_n_m__ruler_distance(n_m__real_width);
-                let n_mm__ruler = n_m__ruler / n_m__real_width * n_mm_plate_x;
-                let n_px__ruler = n_mm__ruler * n_px_per_mm_x;
-                let n_bar_height = Math.max(3, Math.round(n_row * 0.012));
-                let n_margin = Math.round(Math.min(n_col, n_row) * 0.04);
-                // ruler label
-                let s_ruler;
-                if (n_m__ruler >= 1000) {
-                    s_ruler = (n_m__ruler / 1000) + ' km';
-                } else {
-                    s_ruler = n_m__ruler + ' m';
-                }
-                let n_font__ruler = Math.max(8, Math.round(n_row * 0.035));
+            if (n_m__real_width > 0 && n_px__ruler > 0) {
                 o_ctx.save();
                 // mirror X to match the text mirroring
                 o_ctx.scale(-1, 1);
-                // draw in bottom-right of mirrored space (which is bottom-left in mirrored canvas)
                 let n_bar_x = -(n_col - n_margin);
                 let n_bar_y = n_row - n_margin - n_bar_height;
                 // bar
@@ -1441,11 +1460,11 @@ let o_component__bw_image_to_3d = {
                 o_ctx.fillRect(n_bar_x, n_bar_y, n_px__ruler, n_bar_height);
                 // end ticks
                 let n_tick_h = n_bar_height * 3;
-                o_ctx.fillRect(n_bar_x, n_bar_y - n_tick_h / 2 + n_bar_height / 2, Math.max(2, n_bar_height * 0.6), n_tick_h);
-                o_ctx.fillRect(n_bar_x + n_px__ruler - Math.max(2, n_bar_height * 0.6), n_bar_y - n_tick_h / 2 + n_bar_height / 2, Math.max(2, n_bar_height * 0.6), n_tick_h);
+                let n_tick_w = Math.max(2, n_bar_height * 0.6);
+                o_ctx.fillRect(n_bar_x, n_bar_y - n_tick_h / 2 + n_bar_height / 2, n_tick_w, n_tick_h);
+                o_ctx.fillRect(n_bar_x + n_px__ruler - n_tick_w, n_bar_y - n_tick_h / 2 + n_bar_height / 2, n_tick_w, n_tick_h);
                 // label above bar
                 o_ctx.font = n_font__ruler + 'px sans-serif';
-                o_ctx.fillStyle = 'white';
                 o_ctx.textAlign = 'left';
                 o_ctx.textBaseline = 'bottom';
                 o_ctx.fillText(s_ruler, n_bar_x, n_bar_y - n_bar_height * 0.5);
