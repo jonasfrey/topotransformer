@@ -32,6 +32,22 @@ let o_component__map = {
                         innerText: "{{ b_exporting ? 'Exporting...' : 'Export & Open in 3D' }}",
                     },
                     {
+                        s_tag: 'select',
+                        'v-model': 's_ratio',
+                        class: 'map__select_ratio',
+                        a_o: [
+                            { s_tag: 'option', value: 'free', innerText: 'Free' },
+                            { s_tag: 'option', value: '1:1', innerText: '1:1' },
+                            { s_tag: 'option', value: '4:3', innerText: '4:3' },
+                            { s_tag: 'option', value: '3:2', innerText: '3:2' },
+                            { s_tag: 'option', value: '16:9', innerText: '16:9' },
+                            { s_tag: 'option', value: '21:9', innerText: '21:9' },
+                            { s_tag: 'option', value: '3:4', innerText: '3:4 (portrait)' },
+                            { s_tag: 'option', value: '2:3', innerText: '2:3 (portrait)' },
+                            { s_tag: 'option', value: '9:16', innerText: '9:16 (portrait)' },
+                        ],
+                    },
+                    {
                         s_tag: 'div',
                         class: 'map__info',
                         'v-if': 's_status',
@@ -55,10 +71,24 @@ let o_component__map = {
                     },
                 ],
             },
-            // crosshair overlay to show export bounds
+            // aspect ratio selection overlay
             {
                 s_tag: 'div',
-                class: 'map__crosshair',
+                class: 'map__selection_overlay',
+                a_o: [
+                    // dark regions outside the box
+                    { s_tag: 'div', class: 'map__selection_dim map__selection_dim--top', ':style': 'o_style__dim_top' },
+                    { s_tag: 'div', class: 'map__selection_dim map__selection_dim--bottom', ':style': 'o_style__dim_bottom' },
+                    { s_tag: 'div', class: 'map__selection_dim map__selection_dim--left', ':style': 'o_style__dim_left' },
+                    { s_tag: 'div', class: 'map__selection_dim map__selection_dim--right', ':style': 'o_style__dim_right' },
+                    // selection box border
+                    { s_tag: 'div', class: 'map__selection_box', ':style': 'o_style__selection_box', a_o: [
+                        { s_tag: 'div', class: 'map__selection_corner map__selection_corner--tl' },
+                        { s_tag: 'div', class: 'map__selection_corner map__selection_corner--tr' },
+                        { s_tag: 'div', class: 'map__selection_corner map__selection_corner--bl' },
+                        { s_tag: 'div', class: 'map__selection_corner map__selection_corner--br' },
+                    ]},
+                ],
             },
         ],
     })).outerHTML,
@@ -72,7 +102,65 @@ let o_component__map = {
             n_m_per_pixel: 1200,
             s_quality: '',
             s_quality_class: '',
+            s_ratio: '1:1',
+            n_scl_x__viewport: 0,
+            n_scl_y__viewport: 0,
         };
+    },
+    computed: {
+        // parse aspect ratio into numeric value (width / height), 0 = free
+        n_ratio__aspect: function () {
+            if (this.s_ratio === 'free') return 0;
+            let a_s = this.s_ratio.split(':');
+            return parseFloat(a_s[0]) / parseFloat(a_s[1]);
+        },
+        // selection box pixel dimensions and position (centered in viewport)
+        o_selection: function () {
+            let n_vw = this.n_scl_x__viewport;
+            let n_vh = this.n_scl_y__viewport;
+            if (n_vw === 0 || n_vh === 0) return { n_x: 0, n_y: 0, n_scl_x: n_vw, n_scl_y: n_vh };
+            let n_ratio = this.n_ratio__aspect;
+            if (n_ratio === 0) {
+                // free: full viewport
+                return { n_x: 0, n_y: 0, n_scl_x: n_vw, n_scl_y: n_vh };
+            }
+            let n_box_w, n_box_h;
+            if (n_vw / n_vh > n_ratio) {
+                // viewport is wider than ratio: fit by height
+                n_box_h = n_vh * 0.85;
+                n_box_w = n_box_h * n_ratio;
+            } else {
+                // viewport is taller than ratio: fit by width
+                n_box_w = n_vw * 0.85;
+                n_box_h = n_box_w / n_ratio;
+            }
+            return {
+                n_x: Math.round((n_vw - n_box_w) / 2),
+                n_y: Math.round((n_vh - n_box_h) / 2),
+                n_scl_x: Math.round(n_box_w),
+                n_scl_y: Math.round(n_box_h),
+            };
+        },
+        o_style__selection_box: function () {
+            let o = this.o_selection;
+            return { left: o.n_x + 'px', top: o.n_y + 'px', width: o.n_scl_x + 'px', height: o.n_scl_y + 'px' };
+        },
+        o_style__dim_top: function () {
+            let o = this.o_selection;
+            return { left: '0', top: '0', right: '0', height: o.n_y + 'px' };
+        },
+        o_style__dim_bottom: function () {
+            let o = this.o_selection;
+            return { left: '0', top: (o.n_y + o.n_scl_y) + 'px', right: '0', bottom: '0' };
+        },
+        o_style__dim_left: function () {
+            let o = this.o_selection;
+            return { left: '0', top: o.n_y + 'px', width: o.n_x + 'px', height: o.n_scl_y + 'px' };
+        },
+        o_style__dim_right: function () {
+            let o = this.o_selection;
+            return { left: (o.n_x + o.n_scl_x) + 'px', top: o.n_y + 'px', right: '0', height: o.n_scl_y + 'px' };
+        },
     },
     mounted: function () {
         let self = this;
@@ -115,17 +203,30 @@ let o_component__map = {
             o_map.on('zoomend moveend', function () { self.f_update_zoom_info(); });
             self.f_update_zoom_info();
 
+            // track viewport size for selection box
+            self.f_update_viewport_size();
+            self._f_on_resize = function () { self.f_update_viewport_size(); };
+            window.addEventListener('resize', self._f_on_resize);
+
             // fix leaflet sizing after vue mount
-            setTimeout(function () { o_map.invalidateSize(); }, 100);
+            setTimeout(function () { o_map.invalidateSize(); self.f_update_viewport_size(); }, 100);
         });
     },
     beforeUnmount: function () {
+        if (this._f_on_resize) window.removeEventListener('resize', this._f_on_resize);
         if (this._o_map) {
             this._o_map.remove();
             this._o_map = null;
         }
     },
     methods: {
+        f_update_viewport_size: function () {
+            let el = this.$refs.map_container;
+            if (!el) return;
+            this.n_scl_x__viewport = el.clientWidth;
+            this.n_scl_y__viewport = el.clientHeight;
+        },
+
         f_update_zoom_info: function () {
             if (!this._o_map) return;
             let n_zoom = Math.round(this._o_map.getZoom());
@@ -282,13 +383,20 @@ let o_component__map = {
                 o_ctx__src.drawImage(o_img, n_off_x, n_off_y);
             }
 
-            // crop to actual viewport pixel bounds
+            // crop to selection box bounds within viewport
             let o_pixel__nw = o_visible.o_pixel__nw;
             let o_pixel__se = o_visible.o_pixel__se;
-            let n_crop_x = o_pixel__nw.x - n_tile_x__min * 256;
-            let n_crop_y = o_pixel__nw.y - n_tile_y__min * 256;
-            let n_crop_scl_x = o_pixel__se.x - o_pixel__nw.x;
-            let n_crop_scl_y = o_pixel__se.y - o_pixel__nw.y;
+            let n_viewport_px_x = o_pixel__se.x - o_pixel__nw.x;
+            let n_viewport_px_y = o_pixel__se.y - o_pixel__nw.y;
+
+            // map selection box (CSS pixels) to tile pixel coordinates
+            let o_sel = this.o_selection;
+            let n_ratio_x = n_viewport_px_x / this.n_scl_x__viewport;
+            let n_ratio_y = n_viewport_px_y / this.n_scl_y__viewport;
+            let n_crop_x = (o_pixel__nw.x - n_tile_x__min * 256) + o_sel.n_x * n_ratio_x;
+            let n_crop_y = (o_pixel__nw.y - n_tile_y__min * 256) + o_sel.n_y * n_ratio_y;
+            let n_crop_scl_x = o_sel.n_scl_x * n_ratio_x;
+            let n_crop_scl_y = o_sel.n_scl_y * n_ratio_y;
 
             // read RGB data from cropped region
             let o_image_data__src = o_ctx__src.getImageData(
