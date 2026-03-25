@@ -1372,12 +1372,18 @@ let o_component__bw_image_to_3d = {
             // available diagonal length in mm
             let n_mm__diagonal = Math.sqrt(n_mm_plate_x * n_mm_plate_x + n_mm_plate_y * n_mm_plate_y);
 
-            // measure text at a reference font size to get aspect ratio
+            // split text into lines and measure at reference font size
+            let a_s__line = s_text.split('\n');
+            let n_cnt__line = a_s__line.length;
             let n_font_ref = 100;
+            let n_line_height_ref = n_font_ref * 1.25;
             o_ctx.font = n_font_ref + 'px sans-serif';
-            let o_metrics = o_ctx.measureText(s_text);
-            let n_text_width_ref = o_metrics.width;
-            let n_text_height_ref = n_font_ref; // approximate
+            let n_text_width_ref = 0;
+            for (let n_i = 0; n_i < n_cnt__line; n_i++) {
+                let n_w = o_ctx.measureText(a_s__line[n_i]).width;
+                if (n_w > n_text_width_ref) n_text_width_ref = n_w;
+            }
+            let n_text_height_ref = n_cnt__line * n_line_height_ref;
 
             // the text, when rotated by the diagonal angle, must fit inside the plate
             // rotated bounding box width along plate X: w*cos(a) + h*sin(a)
@@ -1441,11 +1447,15 @@ let o_component__bw_image_to_3d = {
             // mirror X so text reads correctly when viewed from below
             o_ctx.scale(-1, 1);
             o_ctx.rotate(-n_rad__diagonal_text);
+            let n_line_height_px = n_font_px * 1.25;
             o_ctx.font = n_font_px + 'px sans-serif';
             o_ctx.fillStyle = 'white';
             o_ctx.textAlign = 'center';
             o_ctx.textBaseline = 'middle';
-            o_ctx.fillText(s_text, 0, 0);
+            let n_y__start = -(n_cnt__line - 1) * n_line_height_px / 2;
+            for (let n_i = 0; n_i < n_cnt__line; n_i++) {
+                o_ctx.fillText(a_s__line[n_i], 0, n_y__start + n_i * n_line_height_px);
+            }
             o_ctx.restore();
 
             // draw ruler bar in bottom-right corner (mirrored = bottom-left when viewed from below)
@@ -1651,10 +1661,10 @@ let o_component__bw_image_to_3d = {
 
                 // build carve text: location name + scale (nicely rounded)
                 let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                let s_text = 'TopoPrints';
-                if (s_name__location) s_text += ' — ' + s_name__location;
-                s_text += ' 1:' + o_self.f_s__format_number(n_scale__nice);
-                o_self.s_text__carve = s_text;
+                let a_s__line = ['TopoPrints'];
+                if (s_name__location) a_s__line.push(s_name__location);
+                a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
+                o_self.s_text__carve = a_s__line.join('\n');
             }
 
             let o_image = new Image();
