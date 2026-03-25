@@ -190,6 +190,35 @@ let o_component__bw_image_to_3d = {
                             },
                             {
                                 class: 'bw3d__section',
+                                'v-if': "s_type__geometry === 'plane'",
+                                a_o: [
+                                    {
+                                        class: 'bw3d__row',
+                                        a_o: [
+                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_text__enabled', id: 'chk_text_enabled' },
+                                            { s_tag: 'label', for: 'chk_text_enabled', class: 'bw3d__label', innerText: 'Carve text into baseplate' },
+                                        ],
+                                    },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                'v-if': "s_type__geometry === 'plane' && b_text__enabled",
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Text' },
+                                    { s_tag: 'input', type: 'text', 'v-model': 's_text__carve', class: 'bw3d__input', maxlength: '100' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                'v-if': "s_type__geometry === 'plane' && b_text__enabled",
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Carve depth (mm): {{ n_mm__text_depth.toFixed(2) }}' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__text_depth', min: '0.05', max: '2', step: '0.05', class: 'bw3d__range' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
                                 a_o: [
                                     {
                                         class: 'bw3d__row',
@@ -381,6 +410,10 @@ let o_component__bw_image_to_3d = {
             n_mm__max_width: 240,
             n_mm__baseplate: 5,
             n_deg__chamfer: 60,
+            // text carving
+            b_text__enabled: true,
+            s_text__carve: 'TopoPrints',
+            n_mm__text_depth: 0.2,
             // tiling
             n_tile_col: 3,
             n_tile_row: 3,
@@ -820,7 +853,16 @@ let o_component__bw_image_to_3d = {
 
             // for plane mode with baseplate: build a single watertight solid
             if (s_type === 'plane' && o_self.n_mm__baseplate > 0) {
-                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer);
+                // generate text mask if text carving is enabled
+                let a_n__text_mask = null;
+                if (o_self.b_text__enabled && o_self.s_text__carve.length > 0) {
+                    // compute plate dimensions in mm
+                    let n_ratio = n_scl_x / n_scl_y;
+                    let n_mm_plate_x = n_ratio >= 1 ? o_self.n_mm__max_width : o_self.n_mm__max_width * n_ratio;
+                    let n_mm_plate_y = n_ratio >= 1 ? o_self.n_mm__max_width / n_ratio : o_self.n_mm__max_width;
+                    a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, 50);
+                }
+                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer, a_n__text_mask, o_self.n_mm__text_depth);
 
                 if (o_self.b_colormap__height) {
                     o_self.f_apply_vertex_color(o_geom__solid, s_type);
@@ -1132,7 +1174,7 @@ let o_component__bw_image_to_3d = {
 
         // build a single watertight solid from a displaced plane:
         // top face (displaced surface) + bottom face (flat or chamfered) + 4 side walls
-        f_o_geometry__solid_plane: function (o_geom__top, n_thickness, n_deg__chamfer) {
+        f_o_geometry__solid_plane: function (o_geom__top, n_thickness, n_deg__chamfer, a_n__text_mask, n_mm__text_depth) {
             let o_self = this;
             let THREE = o_self._THREE;
             let o_pos__top = o_geom__top.attributes.position;
@@ -1196,6 +1238,21 @@ let o_component__bw_image_to_3d = {
                 a_n__pos.push(o_pos__top.getX(n_idx), n_y, n_z);
             }
 
+            // --- carve text into bottom face ---
+            if (a_n__text_mask && n_mm__text_depth > 0) {
+                for (let n_r = 0; n_r < n_row; n_r++) {
+                    for (let n_c = 0; n_c < n_col; n_c++) {
+                        let n_idx__mask = n_r * n_col + n_c;
+                        if (a_n__text_mask[n_idx__mask] > 0) {
+                            // raise bottom vertex Z by carve depth (carves inward)
+                            let n_idx__bottom = n_cnt__vertex + n_idx__mask;
+                            let n_pos_z = n_idx__bottom * 3 + 2;
+                            a_n__pos[n_pos_z] += n_mm__text_depth;
+                        }
+                    }
+                }
+            }
+
             // --- top face triangles (same winding as original) ---
             if (o_idx__top) {
                 for (let n_idx = 0; n_idx < o_idx__top.count; n_idx++) {
@@ -1257,6 +1314,80 @@ let o_component__bw_image_to_3d = {
             o_geom.setIndex(a_n__idx);
 
             return o_geom;
+        },
+
+        // render text to an offscreen canvas, return Uint8Array (1 byte per pixel, 255 = text)
+        // text is scaled to fill diagonally, capped at n_mm__max_width_text mm real width
+        f_a_n__text_mask: function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_text, n_mm__max_width_text) {
+            let el_canvas = document.createElement('canvas');
+            el_canvas.width = n_col;
+            el_canvas.height = n_row;
+            let o_ctx = el_canvas.getContext('2d');
+
+            // diagonal angle of the plate
+            let n_rad__diagonal = Math.atan2(n_mm_plate_y, n_mm_plate_x);
+
+            // available diagonal length in mm
+            let n_mm__diagonal = Math.sqrt(n_mm_plate_x * n_mm_plate_x + n_mm_plate_y * n_mm_plate_y);
+
+            // measure text at a reference font size to get aspect ratio
+            let n_font_ref = 100;
+            o_ctx.font = n_font_ref + 'px sans-serif';
+            let o_metrics = o_ctx.measureText(s_text);
+            let n_text_width_ref = o_metrics.width;
+            let n_text_height_ref = n_font_ref; // approximate
+
+            // the text, when rotated by the diagonal angle, must fit inside the plate
+            // rotated bounding box width along plate X: w*cos(a) + h*sin(a)
+            // rotated bounding box height along plate Y: w*sin(a) + h*cos(a)
+            let n_cos = Math.cos(n_rad__diagonal);
+            let n_sin = Math.sin(n_rad__diagonal);
+
+            // scale factor limited by plate dimensions and max text width
+            let n_rotated_w = n_text_width_ref * n_cos + n_text_height_ref * n_sin;
+            let n_rotated_h = n_text_width_ref * n_sin + n_text_height_ref * n_cos;
+            let n_scl_fit = Math.min(
+                n_mm_plate_x / n_rotated_w,
+                n_mm_plate_y / n_rotated_h
+            );
+
+            // also cap text real width to n_mm__max_width_text mm
+            let n_mm__text_actual = n_text_width_ref * n_scl_fit;
+            if (n_mm__text_actual > n_mm__max_width_text) {
+                n_scl_fit *= n_mm__max_width_text / n_mm__text_actual;
+            }
+
+            let n_font_final = n_font_ref * n_scl_fit;
+
+            // convert mm scale to pixel scale: pixels per mm
+            let n_px_per_mm_x = n_col / n_mm_plate_x;
+            let n_px_per_mm_y = n_row / n_mm_plate_y;
+            let n_px_per_mm = (n_px_per_mm_x + n_px_per_mm_y) / 2;
+            let n_font_px = n_font_final * n_px_per_mm;
+
+            // draw rotated text centered on canvas
+            o_ctx.clearRect(0, 0, n_col, n_row);
+            o_ctx.save();
+            o_ctx.translate(n_col / 2, n_row / 2);
+            // mirror X so text reads correctly when viewed from below
+            o_ctx.scale(-1, 1);
+            o_ctx.rotate(-n_rad__diagonal);
+            o_ctx.font = n_font_px + 'px sans-serif';
+            o_ctx.fillStyle = 'white';
+            o_ctx.textAlign = 'center';
+            o_ctx.textBaseline = 'middle';
+            o_ctx.fillText(s_text, 0, 0);
+            o_ctx.restore();
+
+            // extract alpha/luminance as mask
+            let o_imagedata = o_ctx.getImageData(0, 0, n_col, n_row);
+            let a_n__rgba = o_imagedata.data;
+            let a_n__mask = new Uint8Array(n_col * n_row);
+            for (let n_idx = 0; n_idx < a_n__mask.length; n_idx++) {
+                // use alpha channel (index 3)
+                a_n__mask[n_idx] = a_n__rgba[n_idx * 4 + 3] > 127 ? 255 : 0;
+            }
+            return a_n__mask;
         },
 
         f_apply_vertex_color: function (o_geometry, s_type) {
