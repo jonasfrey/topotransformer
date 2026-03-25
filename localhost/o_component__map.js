@@ -81,26 +81,26 @@ let o_component__map = {
                         a_o: [
                             { s_tag: 'option', value: '', innerText: '— Presets —' },
                             { s_tag: 'option', disabled: true, innerText: '── Mountain Ranges ──' },
-                            { s_tag: 'option', value: '36.1,-112.1,10', innerText: 'Grand Canyon, AZ' },
-                            { s_tag: 'option', value: '46.43,11.85,11', innerText: 'Dolomites, Italy' },
-                            { s_tag: 'option', value: '37.74,-119.57,11', innerText: 'Yosemite Valley' },
-                            { s_tag: 'option', value: '46.02,7.75,11', innerText: 'Zermatt / Matterhorn' },
-                            { s_tag: 'option', value: '45.83,6.86,11', innerText: 'Mont Blanc massif' },
-                            { s_tag: 'option', value: '-51.0,-73.1,10', innerText: 'Torres del Paine, Chile' },
+                            { s_tag: 'option', value: '36.1,-112.1,10,Grand Canyon', innerText: 'Grand Canyon, AZ' },
+                            { s_tag: 'option', value: '46.43,11.85,11,Dolomites', innerText: 'Dolomites, Italy' },
+                            { s_tag: 'option', value: '37.74,-119.57,11,Yosemite Valley', innerText: 'Yosemite Valley' },
+                            { s_tag: 'option', value: '46.02,7.75,11,Zermatt', innerText: 'Zermatt / Matterhorn' },
+                            { s_tag: 'option', value: '45.83,6.86,11,Mont Blanc', innerText: 'Mont Blanc massif' },
+                            { s_tag: 'option', value: '-51.0,-73.1,10,Torres del Paine', innerText: 'Torres del Paine, Chile' },
                             { s_tag: 'option', disabled: true, innerText: '── Volcanic ──' },
-                            { s_tag: 'option', value: '35.36,138.73,11', innerText: 'Mount Fuji' },
-                            { s_tag: 'option', value: '-3.07,37.35,10', innerText: 'Mount Kilimanjaro' },
-                            { s_tag: 'option', value: '46.2,-122.18,11', innerText: 'Mount St. Helens' },
-                            { s_tag: 'option', value: '42.94,-122.1,11', innerText: 'Crater Lake, OR' },
-                            { s_tag: 'option', value: '28.27,-16.64,11', innerText: 'Teide, Tenerife' },
+                            { s_tag: 'option', value: '35.36,138.73,11,Mount Fuji', innerText: 'Mount Fuji' },
+                            { s_tag: 'option', value: '-3.07,37.35,10,Kilimanjaro', innerText: 'Mount Kilimanjaro' },
+                            { s_tag: 'option', value: '46.2,-122.18,11,Mount St. Helens', innerText: 'Mount St. Helens' },
+                            { s_tag: 'option', value: '42.94,-122.1,11,Crater Lake', innerText: 'Crater Lake, OR' },
+                            { s_tag: 'option', value: '28.27,-16.64,11,Teide', innerText: 'Teide, Tenerife' },
                             { s_tag: 'option', disabled: true, innerText: '── Fjord / Coastal ──' },
-                            { s_tag: 'option', value: '62.1,7.09,10', innerText: 'Geirangerfjord, Norway' },
-                            { s_tag: 'option', value: '-44.67,167.93,11', innerText: 'Milford Sound, NZ' },
-                            { s_tag: 'option', value: '68.2,14.5,9', innerText: 'Lofoten Island, Norway' },
+                            { s_tag: 'option', value: '62.1,7.09,10,Geirangerfjord', innerText: 'Geirangerfjord, Norway' },
+                            { s_tag: 'option', value: '-44.67,167.93,11,Milford Sound', innerText: 'Milford Sound, NZ' },
+                            { s_tag: 'option', value: '68.2,14.5,9,Lofoten', innerText: 'Lofoten Island, Norway' },
                             { s_tag: 'option', disabled: true, innerText: '── Canyon ──' },
-                            { s_tag: 'option', value: '37.6,-112.17,11', innerText: 'Bryce Canyon, UT' },
-                            { s_tag: 'option', value: '-27.6,17.6,10', innerText: 'Fish River Canyon, Namibia' },
-                            { s_tag: 'option', value: '-15.6,-72.1,10', innerText: 'Colca Canyon, Peru' },
+                            { s_tag: 'option', value: '37.6,-112.17,11,Bryce Canyon', innerText: 'Bryce Canyon, UT' },
+                            { s_tag: 'option', value: '-27.6,17.6,10,Fish River Canyon', innerText: 'Fish River Canyon, Namibia' },
+                            { s_tag: 'option', value: '-15.6,-72.1,10,Colca Canyon', innerText: 'Colca Canyon, Peru' },
                         ],
                     },
                     {
@@ -164,6 +164,7 @@ let o_component__map = {
             s_search: '',
             b_searching: false,
             s_preset: '',
+            s_name__location: '',
             b_elevation_overlay: false,
             _o_layer__elevation: null,
         };
@@ -372,6 +373,7 @@ let o_component__map = {
             let n_lat = parseFloat(a_s[0]);
             let n_lon = parseFloat(a_s[1]);
             let n_zoom = parseInt(a_s[2]);
+            o_self.s_name__location = a_s.length > 3 ? a_s.slice(3).join(',') : '';
             o_self._o_map.setView([n_lat, n_lon], n_zoom);
             o_self.s_preset = '';
         },
@@ -403,6 +405,8 @@ let o_component__map = {
                         o_self._o_map.setView([n_lat, n_lon], 12);
                     }
                     o_self.s_status = o_result.display_name;
+                    // use short name from search query for location label
+                    o_self.s_name__location = o_self.s_search.trim();
                 }
             } catch (o_err) {
                 o_self.s_status = 'Search failed: ' + o_err.message;
@@ -667,6 +671,7 @@ let o_component__map = {
                     globalThis.o_state.n_m__elevation_min = o_result.n_m__elevation_min;
                     globalThis.o_state.n_m__elevation_max = o_result.n_m__elevation_max;
                     globalThis.o_state.n_scl_x__selection = o_result.n_scl_x__selection;
+                    globalThis.o_state.s_name__location = this.s_name__location;
                     this.$router.push('/bw-image-to-3d');
                 } else {
                     // trigger download

@@ -866,7 +866,7 @@ let o_component__bw_image_to_3d = {
                     let n_ratio = n_scl_x / n_scl_y;
                     let n_mm_plate_x = n_ratio >= 1 ? o_self.n_mm__max_width : o_self.n_mm__max_width * n_ratio;
                     let n_mm_plate_y = n_ratio >= 1 ? o_self.n_mm__max_width / n_ratio : o_self.n_mm__max_width;
-                    a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, 50);
+                    a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve);
                 }
                 let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer, a_n__text_mask, o_self.n_mm__text_depth);
 
@@ -1323,8 +1323,8 @@ let o_component__bw_image_to_3d = {
         },
 
         // render text to an offscreen canvas, return Uint8Array (1 byte per pixel, 255 = text)
-        // text is scaled to fill diagonally, capped at n_mm__max_width_text mm real width
-        f_a_n__text_mask: function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_text, n_mm__max_width_text) {
+        // text is scaled to fill diagonally as large as possible
+        f_a_n__text_mask: function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_text) {
             let el_canvas = document.createElement('canvas');
             el_canvas.width = n_col;
             el_canvas.height = n_row;
@@ -1356,12 +1356,6 @@ let o_component__bw_image_to_3d = {
                 n_mm_plate_x / n_rotated_w,
                 n_mm_plate_y / n_rotated_h
             );
-
-            // also cap text real width to n_mm__max_width_text mm
-            let n_mm__text_actual = n_text_width_ref * n_scl_fit;
-            if (n_mm__text_actual > n_mm__max_width_text) {
-                n_scl_fit *= n_mm__max_width_text / n_mm__text_actual;
-            }
 
             let n_font_final = n_font_ref * n_scl_fit;
 
@@ -1541,12 +1535,15 @@ let o_component__bw_image_to_3d = {
             o_self.n_m__elevation_max = globalThis.o_state.n_m__elevation_max || 0;
             o_self.n_scl_x__map_selection = globalThis.o_state.n_scl_x__selection || 0;
 
+            let s_name__location = globalThis.o_state.s_name__location || '';
+
             // clean up global state
             delete globalThis.o_state.s_data_url__map_elevation;
             delete globalThis.o_state.n_m_per_pixel;
             delete globalThis.o_state.n_m__elevation_min;
             delete globalThis.o_state.n_m__elevation_max;
             delete globalThis.o_state.n_scl_x__selection;
+            delete globalThis.o_state.s_name__location;
 
             // auto-calculate offset factor from real-world scale
             if (o_self.n_m_per_pixel > 0 && o_self.n_scl_x__map_selection > 0) {
@@ -1560,9 +1557,12 @@ let o_component__bw_image_to_3d = {
                 // clamp to slider range
                 o_self.n_factor = Math.max(-1, Math.min(1, n_factor__auto));
 
-                // build scale string and set as carve text
+                // build carve text: location name + scale
                 let n_scale__round = Math.round(n_scale);
-                o_self.s_text__carve = 'TopoPrints 1:' + n_scale__round.toLocaleString();
+                let s_text = 'TopoPrints';
+                if (s_name__location) s_text += ' — ' + s_name__location;
+                s_text += ' 1:' + n_scale__round.toLocaleString();
+                o_self.s_text__carve = s_text;
             }
 
             let o_image = new Image();
