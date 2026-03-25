@@ -33,6 +33,12 @@ let o_component__map = {
                     },
                     {
                         s_tag: 'div',
+                        ':class': "'bw3d__toolbar_btn interactable' + (b_elevation_overlay ? ' active' : '')",
+                        'v-on:click': 'f_toggle_elevation_overlay',
+                        innerText: 'Heightmap',
+                    },
+                    {
+                        s_tag: 'div',
                         class: 'map__search',
                         a_o: [
                             {
@@ -158,6 +164,8 @@ let o_component__map = {
             s_search: '',
             b_searching: false,
             s_preset: '',
+            b_elevation_overlay: false,
+            _o_layer__elevation: null,
         };
     },
     computed: {
@@ -267,12 +275,96 @@ let o_component__map = {
     },
     beforeUnmount: function () {
         if (this._f_on_resize) window.removeEventListener('resize', this._f_on_resize);
+        if (this._o_layer__elevation && this._o_map) {
+            this._o_map.removeLayer(this._o_layer__elevation);
+            this._o_layer__elevation = null;
+        }
         if (this._o_map) {
             this._o_map.remove();
             this._o_map = null;
         }
     },
     methods: {
+        f_toggle_elevation_overlay: function () {
+            let o_self = this;
+            o_self.b_elevation_overlay = !o_self.b_elevation_overlay;
+            if (!o_self._o_map) return;
+
+            if (o_self.b_elevation_overlay) {
+                // create custom GridLayer that fetches Terrarium tiles and renders grayscale
+                let o_layer = L.GridLayer.extend({
+                    createTile: function (o_coords, f_done) {
+                        let el_canvas = document.createElement('canvas');
+                        el_canvas.width = 256;
+                        el_canvas.height = 256;
+                        let n_x = o_coords.x;
+                        let n_y = o_coords.y;
+                        let n_z = o_coords.z;
+                        // wrap x for world copies
+                        let n_max_tile = 1 << n_z;
+                        n_x = ((n_x % n_max_tile) + n_max_tile) % n_max_tile;
+                        let s_url = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + n_z + '/' + n_x + '/' + n_y + '.png';
+                        fetch(s_url).then(function (o_resp) {
+                            if (!o_resp.ok) { f_done(null, el_canvas); return; }
+                            return o_resp.blob();
+                        }).then(function (o_blob) {
+                            if (!o_blob) return;
+                            let s_blob_url = URL.createObjectURL(o_blob);
+                            let o_img = new Image();
+                            o_img.onload = function () {
+                                URL.revokeObjectURL(s_blob_url);
+                                let o_ctx = el_canvas.getContext('2d');
+                                o_ctx.drawImage(o_img, 0, 0);
+                                let o_data = o_ctx.getImageData(0, 0, 256, 256);
+                                let a_n = o_data.data;
+                                // decode elevations, find local min/max
+                                let n_cnt = 256 * 256;
+                                let a_n__elev = new Float32Array(n_cnt);
+                                let n_min = Infinity;
+                                let n_max = -Infinity;
+                                for (let n_i = 0; n_i < n_cnt; n_i++) {
+                                    let n_off = n_i * 4;
+                                    let n_elev = (a_n[n_off] * 256 + a_n[n_off + 1] + a_n[n_off + 2] / 256) - 32768;
+                                    if (n_elev < 0) n_elev = 0;
+                                    a_n__elev[n_i] = n_elev;
+                                    if (n_elev < n_min) n_min = n_elev;
+                                    if (n_elev > n_max) n_max = n_elev;
+                                }
+                                // normalize to grayscale
+                                let n_range = n_max - n_min;
+                                if (n_range < 1) n_range = 1;
+                                for (let n_i = 0; n_i < n_cnt; n_i++) {
+                                    let n_val = Math.round(((a_n__elev[n_i] - n_min) / n_range) * 255);
+                                    let n_off = n_i * 4;
+                                    a_n[n_off] = n_val;
+                                    a_n[n_off + 1] = n_val;
+                                    a_n[n_off + 2] = n_val;
+                                    a_n[n_off + 3] = 255;
+                                }
+                                o_ctx.putImageData(o_data, 0, 0);
+                                f_done(null, el_canvas);
+                            };
+                            o_img.onerror = function () {
+                                URL.revokeObjectURL(s_blob_url);
+                                f_done(null, el_canvas);
+                            };
+                            o_img.src = s_blob_url;
+                        }).catch(function () {
+                            f_done(null, el_canvas);
+                        });
+                        return el_canvas;
+                    },
+                });
+                o_self._o_layer__elevation = new o_layer({ maxZoom: 15 });
+                o_self._o_layer__elevation.addTo(o_self._o_map);
+            } else {
+                if (o_self._o_layer__elevation) {
+                    o_self._o_map.removeLayer(o_self._o_layer__elevation);
+                    o_self._o_layer__elevation = null;
+                }
+            }
+        },
+
         f_go_preset: function () {
             let o_self = this;
             if (!o_self.s_preset || !o_self._o_map) return;
