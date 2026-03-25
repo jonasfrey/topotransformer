@@ -426,7 +426,7 @@ let o_component__bw_image_to_3d = {
             b_colormap__height: true,
             n_intensity__ambient: 0.4,
             n_intensity__directional: 0.8,
-            b_autorotate: true,
+            b_autorotate: false,
             n_speed__rotation: 1,
             // internal (non-reactive three.js refs)
             _o_renderer: null,
