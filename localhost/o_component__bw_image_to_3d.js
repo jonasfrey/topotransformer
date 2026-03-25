@@ -169,6 +169,7 @@ let o_component__bw_image_to_3d = {
                                 a_o: [
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Max width (mm)' },
                                     { s_tag: 'input', type: 'number', 'v-model.number': 'n_mm__max_width', min: '1', step: '1', class: 'bw3d__input' },
+                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'n_m_per_pixel > 0', innerText: 'Scale 1:{{ Math.round(n_m_per_pixel * n_scl_x__map_selection * 1000 / n_mm__max_width).toLocaleString() }} — elevation {{ Math.round(n_m__elevation_min) }}m–{{ Math.round(n_m__elevation_max) }}m' },
                                 ],
                             },
                             {
@@ -414,6 +415,11 @@ let o_component__bw_image_to_3d = {
             b_text__enabled: true,
             s_text__carve: 'TopoPrints',
             n_mm__text_depth: 0.2,
+            // map metadata (passed from map page)
+            n_m_per_pixel: 0,
+            n_m__elevation_min: 0,
+            n_m__elevation_max: 0,
+            n_scl_x__map_selection: 0,
             // tiling
             n_tile_col: 3,
             n_tile_row: 3,
@@ -1527,8 +1533,38 @@ let o_component__bw_image_to_3d = {
         // auto-load elevation image passed from map page
         let s_data_url = globalThis.o_state.s_data_url__map_elevation;
         if (s_data_url) {
-            delete globalThis.o_state.s_data_url__map_elevation;
             let o_self = this;
+
+            // read map metadata
+            o_self.n_m_per_pixel = globalThis.o_state.n_m_per_pixel || 0;
+            o_self.n_m__elevation_min = globalThis.o_state.n_m__elevation_min || 0;
+            o_self.n_m__elevation_max = globalThis.o_state.n_m__elevation_max || 0;
+            o_self.n_scl_x__map_selection = globalThis.o_state.n_scl_x__selection || 0;
+
+            // clean up global state
+            delete globalThis.o_state.s_data_url__map_elevation;
+            delete globalThis.o_state.n_m_per_pixel;
+            delete globalThis.o_state.n_m__elevation_min;
+            delete globalThis.o_state.n_m__elevation_max;
+            delete globalThis.o_state.n_scl_x__selection;
+
+            // auto-calculate offset factor from real-world scale
+            if (o_self.n_m_per_pixel > 0 && o_self.n_scl_x__map_selection > 0) {
+                let n_m__real_width = o_self.n_m_per_pixel * o_self.n_scl_x__map_selection;
+                let n_scale = n_m__real_width * 1000 / o_self.n_mm__max_width;
+                let n_m__elevation_range = o_self.n_m__elevation_max - o_self.n_m__elevation_min;
+                // displacement range = 2 * n_factor * 10 mm = 20 * n_factor mm
+                // correct height mm = n_m__elevation_range * 1000 / n_scale
+                let n_mm__correct_height = n_m__elevation_range * 1000 / n_scale;
+                let n_factor__auto = n_mm__correct_height / 20;
+                // clamp to slider range
+                o_self.n_factor = Math.max(-1, Math.min(1, n_factor__auto));
+
+                // build scale string and set as carve text
+                let n_scale__round = Math.round(n_scale);
+                o_self.s_text__carve = 'TopoPrints 1:' + n_scale__round.toLocaleString();
+            }
+
             let o_image = new Image();
             o_image.onload = function () { o_self.f_process_image(o_image); };
             o_image.src = s_data_url;

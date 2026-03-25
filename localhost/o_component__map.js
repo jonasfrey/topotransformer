@@ -643,7 +643,13 @@ let o_component__map = {
 
             this.s_status = 'Exported ' + n_scl_x__out + 'x' + n_scl_y__out + 'px (' + Math.round(n_elevation__min) + 'm – ' + Math.round(n_elevation__max) + 'm)';
 
-            return o_canvas__out.toDataURL('image/png');
+            return {
+                s_data_url: o_canvas__out.toDataURL('image/png'),
+                n_m_per_pixel: this.n_m_per_pixel,
+                n_m__elevation_min: n_elevation__min,
+                n_m__elevation_max: n_elevation__max,
+                n_scl_x__selection: n_scl_x__out,
+            };
         },
 
         f_export: async function (b_open_3d) {
@@ -652,17 +658,21 @@ let o_component__map = {
             this.s_status = 'Calculating visible tiles...';
 
             try {
-                let s_data_url = await this.f_s_data_url__from_elevation();
+                let o_result = await this.f_s_data_url__from_elevation();
 
                 if (b_open_3d) {
-                    // store data URL on global state and navigate to 3d page
-                    globalThis.o_state.s_data_url__map_elevation = s_data_url;
+                    // store data URL and metadata on global state and navigate to 3d page
+                    globalThis.o_state.s_data_url__map_elevation = o_result.s_data_url;
+                    globalThis.o_state.n_m_per_pixel = o_result.n_m_per_pixel;
+                    globalThis.o_state.n_m__elevation_min = o_result.n_m__elevation_min;
+                    globalThis.o_state.n_m__elevation_max = o_result.n_m__elevation_max;
+                    globalThis.o_state.n_scl_x__selection = o_result.n_scl_x__selection;
                     this.$router.push('/bw-image-to-3d');
                 } else {
                     // trigger download
                     let o_a = document.createElement('a');
                     o_a.download = 'elevation.png';
-                    o_a.href = s_data_url;
+                    o_a.href = o_result.s_data_url;
                     o_a.click();
                 }
             } catch (o_error) {
