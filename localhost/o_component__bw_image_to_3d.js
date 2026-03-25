@@ -169,7 +169,7 @@ let o_component__bw_image_to_3d = {
                                 a_o: [
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Max width (mm)' },
                                     { s_tag: 'input', type: 'number', 'v-model.number': 'n_mm__max_width', min: '1', step: '1', class: 'bw3d__input' },
-                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'n_m_per_pixel > 0', innerText: 'Scale 1 {{ f_s__format_number(f_n__nice_round(n_m_per_pixel * n_scl_x__map_selection * 1000 / n_mm__max_width)) }} — elevation {{ Math.round(n_m__elevation_min) }}m–{{ Math.round(n_m__elevation_max) }}m' },
+                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'n_m_per_pixel > 0', innerText: 'Scale 1:{{ f_s__format_number(f_n__nice_round(n_m_per_pixel * n_scl_x__map_selection * 1000 / n_mm__max_width)) }} — elevation {{ Math.round(n_m__elevation_min) }}m–{{ Math.round(n_m__elevation_max) }}m' },
                                 ],
                             },
                             {
@@ -1653,7 +1653,7 @@ let o_component__bw_image_to_3d = {
                 let n_scale__nice = o_self.f_n__nice_round(n_scale);
                 let s_text = 'TopoPrints';
                 if (s_name__location) s_text += ' — ' + s_name__location;
-                s_text += ' 1 ' + o_self.f_s__format_number(n_scale__nice);
+                s_text += ' 1:' + o_self.f_s__format_number(n_scale__nice);
                 o_self.s_text__carve = s_text;
             }
 
