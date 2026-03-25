@@ -169,7 +169,7 @@ let o_component__bw_image_to_3d = {
                                 a_o: [
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Max width (mm)' },
                                     { s_tag: 'input', type: 'number', 'v-model.number': 'n_mm__max_width', min: '1', step: '1', class: 'bw3d__input' },
-                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'n_m_per_pixel > 0', innerText: 'Scale 1:{{ Math.round(n_m_per_pixel * n_scl_x__map_selection * 1000 / n_mm__max_width).toLocaleString() }} — elevation {{ Math.round(n_m__elevation_min) }}m–{{ Math.round(n_m__elevation_max) }}m' },
+                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'n_m_per_pixel > 0', innerText: 'Scale 1 {{ f_s__format_number(f_n__nice_round(n_m_per_pixel * n_scl_x__map_selection * 1000 / n_mm__max_width)) }} — elevation {{ Math.round(n_m__elevation_min) }}m–{{ Math.round(n_m__elevation_max) }}m' },
                                 ],
                             },
                             {
@@ -866,7 +866,8 @@ let o_component__bw_image_to_3d = {
                     let n_ratio = n_scl_x / n_scl_y;
                     let n_mm_plate_x = n_ratio >= 1 ? o_self.n_mm__max_width : o_self.n_mm__max_width * n_ratio;
                     let n_mm_plate_y = n_ratio >= 1 ? o_self.n_mm__max_width / n_ratio : o_self.n_mm__max_width;
-                    a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve);
+                    let n_m__real_width = o_self.n_m_per_pixel * o_self.n_scl_x__map_selection;
+                    a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, n_m__real_width);
                 }
                 let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer, a_n__text_mask, o_self.n_mm__text_depth);
 
@@ -1322,9 +1323,44 @@ let o_component__bw_image_to_3d = {
             return o_geom;
         },
 
-        // render text to an offscreen canvas, return Uint8Array (1 byte per pixel, 255 = text)
+        // round a number to a "nice" value: 293467 → 290000, 1234 → 1200
+        f_n__nice_round: function (n_val) {
+            if (n_val <= 0) return 0;
+            let n_magnitude = Math.pow(10, Math.floor(Math.log10(n_val)));
+            let n_leading = n_val / n_magnitude;
+            // round to 2 significant digits
+            let n_rounded = Math.round(n_leading * 10) / 10;
+            return Math.round(n_rounded * n_magnitude);
+        },
+
+        // format number with spaces as thousand separator: 290000 → "290 000"
+        f_s__format_number: function (n_val) {
+            return n_val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        },
+
+        // pick a nice ruler distance in meters for the given real-world width
+        f_n_m__ruler_distance: function (n_m__real_width) {
+            // aim for ruler to be roughly 15-40% of the plate width
+            let n_target = n_m__real_width * 0.25;
+            // snap to nice values: 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, ...
+            let a_n__nice = [1, 2, 5];
+            let n_magnitude = Math.pow(10, Math.floor(Math.log10(n_target)));
+            let n_best = n_magnitude;
+            for (let n_i = 0; n_i < a_n__nice.length; n_i++) {
+                let n_candidate = a_n__nice[n_i] * n_magnitude;
+                if (n_candidate <= n_target * 1.5) n_best = n_candidate;
+            }
+            // also check next magnitude
+            for (let n_i = 0; n_i < a_n__nice.length; n_i++) {
+                let n_candidate = a_n__nice[n_i] * n_magnitude * 10;
+                if (n_candidate <= n_target * 1.5) n_best = n_candidate;
+            }
+            return n_best;
+        },
+
+        // render text + ruler to an offscreen canvas, return Uint8Array (1 byte per pixel, 255 = text)
         // text is scaled to fill diagonally as large as possible
-        f_a_n__text_mask: function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_text) {
+        f_a_n__text_mask: function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width) {
             let el_canvas = document.createElement('canvas');
             el_canvas.width = n_col;
             el_canvas.height = n_row;
@@ -1378,6 +1414,43 @@ let o_component__bw_image_to_3d = {
             o_ctx.textBaseline = 'middle';
             o_ctx.fillText(s_text, 0, 0);
             o_ctx.restore();
+
+            // draw ruler bar in bottom-right corner (mirrored = bottom-left when viewed from below)
+            if (n_m__real_width > 0) {
+                let n_m__ruler = this.f_n_m__ruler_distance(n_m__real_width);
+                let n_mm__ruler = n_m__ruler / n_m__real_width * n_mm_plate_x;
+                let n_px__ruler = n_mm__ruler * n_px_per_mm_x;
+                let n_bar_height = Math.max(3, Math.round(n_row * 0.012));
+                let n_margin = Math.round(Math.min(n_col, n_row) * 0.04);
+                // ruler label
+                let s_ruler;
+                if (n_m__ruler >= 1000) {
+                    s_ruler = (n_m__ruler / 1000) + ' km';
+                } else {
+                    s_ruler = n_m__ruler + ' m';
+                }
+                let n_font__ruler = Math.max(8, Math.round(n_row * 0.035));
+                o_ctx.save();
+                // mirror X to match the text mirroring
+                o_ctx.scale(-1, 1);
+                // draw in bottom-right of mirrored space (which is bottom-left in mirrored canvas)
+                let n_bar_x = -(n_col - n_margin);
+                let n_bar_y = n_row - n_margin - n_bar_height;
+                // bar
+                o_ctx.fillStyle = 'white';
+                o_ctx.fillRect(n_bar_x, n_bar_y, n_px__ruler, n_bar_height);
+                // end ticks
+                let n_tick_h = n_bar_height * 3;
+                o_ctx.fillRect(n_bar_x, n_bar_y - n_tick_h / 2 + n_bar_height / 2, Math.max(2, n_bar_height * 0.6), n_tick_h);
+                o_ctx.fillRect(n_bar_x + n_px__ruler - Math.max(2, n_bar_height * 0.6), n_bar_y - n_tick_h / 2 + n_bar_height / 2, Math.max(2, n_bar_height * 0.6), n_tick_h);
+                // label above bar
+                o_ctx.font = n_font__ruler + 'px sans-serif';
+                o_ctx.fillStyle = 'white';
+                o_ctx.textAlign = 'left';
+                o_ctx.textBaseline = 'bottom';
+                o_ctx.fillText(s_ruler, n_bar_x, n_bar_y - n_bar_height * 0.5);
+                o_ctx.restore();
+            }
 
             // extract alpha/luminance as mask
             let o_imagedata = o_ctx.getImageData(0, 0, n_col, n_row);
@@ -1557,11 +1630,11 @@ let o_component__bw_image_to_3d = {
                 // clamp to slider range
                 o_self.n_factor = Math.max(-1, Math.min(1, n_factor__auto));
 
-                // build carve text: location name + scale
-                let n_scale__round = Math.round(n_scale);
+                // build carve text: location name + scale (nicely rounded)
+                let n_scale__nice = o_self.f_n__nice_round(n_scale);
                 let s_text = 'TopoPrints';
                 if (s_name__location) s_text += ' — ' + s_name__location;
-                s_text += ' 1:' + n_scale__round.toLocaleString();
+                s_text += ' 1 ' + o_self.f_s__format_number(n_scale__nice);
                 o_self.s_text__carve = s_text;
             }
 
