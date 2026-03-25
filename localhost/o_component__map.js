@@ -68,6 +68,36 @@ let o_component__map = {
                         ],
                     },
                     {
+                        s_tag: 'select',
+                        'v-model': 's_preset',
+                        'v-on:change': 'f_go_preset',
+                        class: 'map__select_ratio',
+                        a_o: [
+                            { s_tag: 'option', value: '', innerText: '— Presets —' },
+                            { s_tag: 'option', disabled: true, innerText: '── Mountain Ranges ──' },
+                            { s_tag: 'option', value: '36.1,-112.1,10', innerText: 'Grand Canyon, AZ' },
+                            { s_tag: 'option', value: '46.43,11.85,11', innerText: 'Dolomites, Italy' },
+                            { s_tag: 'option', value: '37.74,-119.57,11', innerText: 'Yosemite Valley' },
+                            { s_tag: 'option', value: '46.02,7.75,11', innerText: 'Zermatt / Matterhorn' },
+                            { s_tag: 'option', value: '45.83,6.86,11', innerText: 'Mont Blanc massif' },
+                            { s_tag: 'option', value: '-51.0,-73.1,10', innerText: 'Torres del Paine, Chile' },
+                            { s_tag: 'option', disabled: true, innerText: '── Volcanic ──' },
+                            { s_tag: 'option', value: '35.36,138.73,11', innerText: 'Mount Fuji' },
+                            { s_tag: 'option', value: '-3.07,37.35,10', innerText: 'Mount Kilimanjaro' },
+                            { s_tag: 'option', value: '46.2,-122.18,11', innerText: 'Mount St. Helens' },
+                            { s_tag: 'option', value: '42.94,-122.1,11', innerText: 'Crater Lake, OR' },
+                            { s_tag: 'option', value: '28.27,-16.64,11', innerText: 'Teide, Tenerife' },
+                            { s_tag: 'option', disabled: true, innerText: '── Fjord / Coastal ──' },
+                            { s_tag: 'option', value: '62.1,7.09,10', innerText: 'Geirangerfjord, Norway' },
+                            { s_tag: 'option', value: '-44.67,167.93,11', innerText: 'Milford Sound, NZ' },
+                            { s_tag: 'option', value: '68.2,14.5,9', innerText: 'Lofoten Island, Norway' },
+                            { s_tag: 'option', disabled: true, innerText: '── Canyon ──' },
+                            { s_tag: 'option', value: '37.6,-112.17,11', innerText: 'Bryce Canyon, UT' },
+                            { s_tag: 'option', value: '-27.6,17.6,10', innerText: 'Fish River Canyon, Namibia' },
+                            { s_tag: 'option', value: '-15.6,-72.1,10', innerText: 'Colca Canyon, Peru' },
+                        ],
+                    },
+                    {
                         s_tag: 'div',
                         class: 'map__info',
                         'v-if': 's_status',
@@ -127,6 +157,7 @@ let o_component__map = {
             n_scl_y__viewport: 0,
             s_search: '',
             b_searching: false,
+            s_preset: '',
         };
     },
     computed: {
@@ -242,6 +273,17 @@ let o_component__map = {
         }
     },
     methods: {
+        f_go_preset: function () {
+            let o_self = this;
+            if (!o_self.s_preset || !o_self._o_map) return;
+            let a_s = o_self.s_preset.split(',');
+            let n_lat = parseFloat(a_s[0]);
+            let n_lon = parseFloat(a_s[1]);
+            let n_zoom = parseInt(a_s[2]);
+            o_self._o_map.setView([n_lat, n_lon], n_zoom);
+            o_self.s_preset = '';
+        },
+
         f_search: async function () {
             let o_self = this;
             if (o_self.b_searching || !o_self.s_search.trim() || !o_self._o_map) return;
