@@ -207,7 +207,7 @@ let o_component__bw_image_to_3d = {
                                 'v-if': "s_type__geometry === 'plane' && b_text__enabled",
                                 a_o: [
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Text' },
-                                    { s_tag: 'input', type: 'text', 'v-model': 's_text__carve', class: 'bw3d__input', maxlength: '100' },
+                                    { s_tag: 'textarea', 'v-model': 's_text__carve', class: 'bw3d__input bw3d__textarea', rows: '3', maxlength: '200' },
                                 ],
                             },
                             {
