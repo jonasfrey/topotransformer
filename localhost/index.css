@@ -726,6 +726,33 @@ main {
     border-right-width: 3px;
 }
 
+.map__search {
+    display: flex;
+    gap: 0;
+    align-items: center;
+}
+
+.map__search_input {
+    padding: 0.35rem 0.6rem;
+    border-radius: var(--r) 0 0 var(--r);
+    background: rgba(10, 10, 18, 0.85);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--c-border);
+    border-right: none;
+    color: var(--c-text);
+    font-size: 12px;
+    width: 180px;
+    outline: none;
+}
+
+.map__search_input::placeholder {
+    color: var(--c-text-mute);
+}
+
+.map__search .bw3d__toolbar_btn {
+    border-radius: 0 var(--r) var(--r) 0 !important;
+}
+
 .map__select_ratio {
     padding: 0.35rem 0.6rem;
     border-radius: var(--r);

@@ -32,6 +32,26 @@ let o_component__map = {
                         innerText: "{{ b_exporting ? 'Exporting...' : 'Export & Open in 3D' }}",
                     },
                     {
+                        s_tag: 'div',
+                        class: 'map__search',
+                        a_o: [
+                            {
+                                s_tag: 'input',
+                                type: 'text',
+                                'v-model': 's_search',
+                                placeholder: 'Search location...',
+                                class: 'map__search_input',
+                                'v-on:keydown.enter': 'f_search',
+                            },
+                            {
+                                s_tag: 'div',
+                                ':class': "'bw3d__toolbar_btn interactable' + (b_searching ? ' disabled' : '')",
+                                'v-on:click': 'f_search',
+                                innerText: '🔍',
+                            },
+                        ],
+                    },
+                    {
                         s_tag: 'select',
                         'v-model': 's_ratio',
                         class: 'map__select_ratio',
@@ -105,6 +125,8 @@ let o_component__map = {
             s_ratio: '1:1',
             n_scl_x__viewport: 0,
             n_scl_y__viewport: 0,
+            s_search: '',
+            b_searching: false,
         };
     },
     computed: {
@@ -220,6 +242,40 @@ let o_component__map = {
         }
     },
     methods: {
+        f_search: async function () {
+            let o_self = this;
+            if (o_self.b_searching || !o_self.s_search.trim() || !o_self._o_map) return;
+            o_self.b_searching = true;
+            o_self.s_status = 'Searching...';
+            try {
+                let s_query = encodeURIComponent(o_self.s_search.trim());
+                let o_resp = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + s_query, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                let a_o_result = await o_resp.json();
+                if (a_o_result.length === 0) {
+                    o_self.s_status = 'No results found';
+                } else {
+                    let o_result = a_o_result[0];
+                    let n_lat = parseFloat(o_result.lat);
+                    let n_lon = parseFloat(o_result.lon);
+                    if (o_result.boundingbox) {
+                        let a_n = o_result.boundingbox;
+                        o_self._o_map.fitBounds([
+                            [parseFloat(a_n[0]), parseFloat(a_n[2])],
+                            [parseFloat(a_n[1]), parseFloat(a_n[3])],
+                        ]);
+                    } else {
+                        o_self._o_map.setView([n_lat, n_lon], 12);
+                    }
+                    o_self.s_status = o_result.display_name;
+                }
+            } catch (o_err) {
+                o_self.s_status = 'Search failed: ' + o_err.message;
+            }
+            o_self.b_searching = false;
+        },
+
         f_update_viewport_size: function () {
             let el = this.$refs.map_container;
             if (!el) return;
