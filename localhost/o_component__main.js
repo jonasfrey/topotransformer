@@ -2168,6 +2168,7 @@ let o_component__main = {
             let o_self = this;
             if (!o_self.a_n__image_data || !o_self._THREE) return;
 
+            let THREE = o_self._THREE;
             let s_name = o_self.s_name__location || 'topo';
             s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
@@ -2182,10 +2183,41 @@ let o_component__main = {
                 let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole);
                 let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
-                o_group.traverse(function (o_child) {
-                    if (o_child.geometry) o_child.geometry.dispose();
-                    if (o_child.material) o_child.material.dispose();
-                });
+                // keep the large variant for preview, dispose the rest
+                if (n_i === 0) {
+                    // remove old preview mesh
+                    if (o_self._o_group) {
+                        o_self._o_scene.remove(o_self._o_group);
+                        o_self._o_group.traverse(function (o_child) {
+                            if (o_child.geometry) o_child.geometry.dispose();
+                            if (o_child.material) o_child.material.dispose();
+                        });
+                    }
+
+                    // apply colormap + material to the large variant for display
+                    let o_mesh = o_group.children[0];
+                    if (o_self.b_colormap__height) {
+                        o_self.f_apply_vertex_color(o_mesh.geometry, 'plane');
+                    }
+                    o_mesh.geometry.computeVertexNormals();
+                    o_mesh.material.dispose();
+                    o_mesh.material = new THREE.MeshStandardMaterial({
+                        color: new THREE.Color(o_self.s_color__mesh),
+                        wireframe: o_self.b_wireframe,
+                        side: THREE.DoubleSide,
+                        flatShading: true,
+                        vertexColors: o_self.b_colormap__height,
+                    });
+
+                    o_self._o_scene.add(o_group);
+                    o_self._o_group = o_group;
+                    o_self._o_mesh = o_mesh;
+                } else {
+                    o_group.traverse(function (o_child) {
+                        if (o_child.geometry) o_child.geometry.dispose();
+                        if (o_child.material) o_child.material.dispose();
+                    });
+                }
 
                 o_self.f_download_buffer(o_buffer, s_name + '_' + o_variant.s_suffix + '.stl');
 
@@ -2193,6 +2225,9 @@ let o_component__main = {
                     await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
                 }
             }
+
+            // open preview panel
+            o_self.b_preview = true;
         },
 
         // ===================== TILING =====================
