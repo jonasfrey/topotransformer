@@ -305,8 +305,8 @@ let o_component__main = {
                             {
                                 class: 'bw3d__section',
                                 a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Offset factor: {{ n_factor.toFixed(2) }} ({{ (n_factor * 10).toFixed(1) }}mm height)' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_factor', min: '-1', max: '1', step: '0.01', class: 'bw3d__range' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Height multiplier: {{ n_factor.toFixed(1) }}x (1.0 = true scale)' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_factor', min: '0', max: '3', step: '0.1', class: 'bw3d__range' },
                                 ],
                             },
                             {
@@ -603,7 +603,7 @@ let o_component__main = {
             // --- 3d config ---
             s_type__geometry: 'plane',
             n_max_resolution: 5000,
-            n_factor: 0.5,
+            n_factor: 1.0,
             n_mm__max_width: 240,
             n_mm__baseplate: 5,
             n_deg__chamfer: 60,
@@ -1159,14 +1159,9 @@ let o_component__main = {
                 o_image.onload = function () {
                     o_self.f_process_image(o_image);
 
-                    // auto-calculate offset factor from real-world scale
+                    // set factor to 1.0 (true scale) — user can adjust
                     if (o_self.n_m_per_pixel__3d > 0 && o_self.n_scl_x__map_selection > 0) {
-                        let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
-                        let n_scale = n_m__real_width * 1000 / o_self.n_mm__max_width;
-                        let n_m__elevation_range = o_self.n_m__elevation_max - o_self.n_m__elevation_min;
-                        let n_mm__correct_height = n_m__elevation_range * 1000 / n_scale;
-                        let n_factor__auto = n_mm__correct_height / 20;
-                        o_self.n_factor = Math.max(-1, Math.min(1, n_factor__auto));
+                        o_self.n_factor = 1.0;
 
                         // build carve text
                         let n_scale__nice = o_self.f_n__nice_round(n_scale);
@@ -1416,7 +1411,7 @@ let o_component__main = {
             let n_scl = o_self.n_mm__max_width / n_max_dim;
             o_geometry.scale(n_scl, n_scl, n_scl);
 
-            let n_mm__displacement = n_factor * 10;
+            let n_mm__displacement = o_self.f_n_mm__displacement(o_self.n_mm__max_width, n_factor);
             o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, s_type);
 
             if (o_self.b_colormap__height) {
@@ -1856,6 +1851,23 @@ let o_component__main = {
             o_geometry.setAttribute('color', new THREE.BufferAttribute(a_n__color, 3));
         },
 
+        // compute displacement in mm for a given model width and factor
+        // factor 1.0 = true-to-scale elevation, 2.0 = 2x exaggerated
+        f_n_mm__displacement: function (n_mm_width, n_factor) {
+            let o_self = this;
+            if (o_self.n_m_per_pixel__3d > 0 && o_self.n_scl_x__map_selection > 0) {
+                let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
+                let n_scale = n_m__real_width * 1000 / n_mm_width;
+                let n_m__elevation_range = o_self.n_m__elevation_max - o_self.n_m__elevation_min;
+                // correct height in mm at this scale, halved because pixel
+                // range -1..+1 maps to ±displacement
+                let n_mm__correct = (n_m__elevation_range * 1000 / n_scale) / 2;
+                return n_mm__correct * n_factor;
+            }
+            // fallback when no map metadata: 10mm at factor 1.0
+            return n_factor * 10 * (n_mm_width / o_self.n_mm__max_width);
+        },
+
         f_n__nice_round: function (n_val) {
             if (n_val <= 0) return 0;
             let n_magnitude = Math.pow(10, Math.floor(Math.log10(n_val)));
@@ -2094,7 +2106,7 @@ let o_component__main = {
             let n_scl = n_mm_width / n_max_dim;
             o_geometry.scale(n_scl, n_scl, n_scl);
 
-            let n_mm__displacement = n_factor * 10 * (n_mm_width / o_self.n_mm__max_width);
+            let n_mm__displacement = o_self.f_n_mm__displacement(n_mm_width, n_factor);
             o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, 'plane');
 
             // text mask with correct scale for this width
@@ -2301,7 +2313,7 @@ let o_component__main = {
             let n_scl = o_self.n_mm__max_width / n_max_dim;
             o_geometry.scale(n_scl, n_scl, n_scl);
 
-            let n_mm__displacement = n_factor * 10;
+            let n_mm__displacement = o_self.f_n_mm__displacement(o_self.n_mm__max_width, n_factor);
             o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, s_type);
 
             let o_group = new THREE.Group();
