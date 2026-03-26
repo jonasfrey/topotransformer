@@ -145,7 +145,7 @@ let o_component__main = {
                 a_o: [
                     {
                         s_tag: 'span',
-                        innerText: 'Zoom {{ n_zoom }} — ~{{ n_m_per_pixel }}m/px',
+                        innerText: 'Zoom {{ n_zoom }} — ~{{ n_m_per_pixel }}m/px — 1:{{ s_scale__map }}',
                     },
                     {
                         s_tag: 'span',
@@ -585,6 +585,7 @@ let o_component__main = {
             n_m_per_pixel: 1200,
             s_quality: '',
             s_quality_class: '',
+            s_scale__map: '',
             s_ratio: '1:1',
             n_scl_x__viewport: 0,
             n_scl_y__viewport: 0,
@@ -958,6 +959,10 @@ let o_component__main = {
             let n_m_per_pixel = 40075016.686 * Math.cos(n_lat * Math.PI / 180) / (256 * Math.pow(2, n_zoom));
             this.n_zoom = n_zoom;
             this.n_m_per_pixel = Math.round(n_m_per_pixel);
+
+            // map scale assuming 96 DPI (0.2646 mm/screen-pixel)
+            let n_scale__map = Math.round(n_m_per_pixel / 0.0002646);
+            this.s_scale__map = this.f_s__format_number(this.f_n__nice_round(n_scale__map));
 
             if (n_m_per_pixel > 90) {
                 this.s_quality = 'native SRTM data (~30m)';
