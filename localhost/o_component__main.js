@@ -254,6 +254,22 @@ let o_component__main = {
                                     },
                                 ],
                             },
+                            // variant preview toggles
+                            {
+                                class: 'bw3d__section',
+                                'v-if': '_o_group__large || _o_group__medium || _o_group__keychain',
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Show variant' },
+                                    {
+                                        class: 'bw3d__row',
+                                        a_o: [
+                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__large ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(0)', innerText: 'Large' },
+                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__medium ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(1)', innerText: 'Medium' },
+                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__keychain ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(2)', innerText: 'Keychain' },
+                                        ],
+                                    },
+                                ],
+                            },
                             // resolution info
                             {
                                 class: 'bw3d__section',
@@ -646,6 +662,12 @@ let o_component__main = {
             _o_light__directional: null,
             _o_mesh: null,
             _o_group: null,
+            _o_group__large: null,
+            _o_group__medium: null,
+            _o_group__keychain: null,
+            b_show__large: true,
+            b_show__medium: false,
+            b_show__keychain: false,
             _o_image__original: null,
             _el_canvas__grayscale: null,
             _n_id__animation: null,
@@ -785,11 +807,14 @@ let o_component__main = {
         if (this._o_resize_observer) this._o_resize_observer.disconnect();
         if (this._o_renderer) this._o_renderer.dispose();
         if (this._o_control) this._o_control.dispose();
-        if (this._o_group) {
-            this._o_group.traverse(function (o_child) {
-                if (o_child.geometry) o_child.geometry.dispose();
-                if (o_child.material) o_child.material.dispose();
-            });
+        let a_s_key__cleanup = ['_o_group', '_o_group__large', '_o_group__medium', '_o_group__keychain'];
+        for (let n_i = 0; n_i < a_s_key__cleanup.length; n_i++) {
+            if (this[a_s_key__cleanup[n_i]]) {
+                this[a_s_key__cleanup[n_i]].traverse(function (o_child) {
+                    if (o_child.geometry) o_child.geometry.dispose();
+                    if (o_child.material) o_child.material.dispose();
+                });
+            }
         }
     },
 
@@ -2178,6 +2203,43 @@ let o_component__main = {
             return o_group;
         },
 
+        f_dispose_variant_preview: function () {
+            let o_self = this;
+            let a_s_key = ['_o_group__large', '_o_group__medium', '_o_group__keychain'];
+            for (let n_i = 0; n_i < a_s_key.length; n_i++) {
+                let o_group = o_self[a_s_key[n_i]];
+                if (o_group) {
+                    o_self._o_scene.remove(o_group);
+                    o_group.traverse(function (o_child) {
+                        if (o_child.geometry) o_child.geometry.dispose();
+                        if (o_child.material) o_child.material.dispose();
+                    });
+                    o_self[a_s_key[n_i]] = null;
+                }
+            }
+            if (o_self._o_group) {
+                o_self._o_scene.remove(o_self._o_group);
+                o_self._o_group.traverse(function (o_child) {
+                    if (o_child.geometry) o_child.geometry.dispose();
+                    if (o_child.material) o_child.material.dispose();
+                });
+                o_self._o_group = null;
+                o_self._o_mesh = null;
+            }
+        },
+
+        f_toggle_variant_preview: function (n_idx) {
+            let o_self = this;
+            let a_s_key = ['_o_group__large', '_o_group__medium', '_o_group__keychain'];
+            let a_s_flag = ['b_show__large', 'b_show__medium', 'b_show__keychain'];
+
+            o_self[a_s_flag[n_idx]] = !o_self[a_s_flag[n_idx]];
+            let o_group = o_self[a_s_key[n_idx]];
+            if (o_group) {
+                o_group.visible = o_self[a_s_flag[n_idx]];
+            }
+        },
+
         f_download_stl_all: async function () {
             let o_self = this;
             if (!o_self.a_n__image_data || !o_self._THREE) return;
@@ -2187,51 +2249,36 @@ let o_component__main = {
             s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
             let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null },
-                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 3.0 },
+                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null, s_key: '_o_group__large', s_flag: 'b_show__large' },
+                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null, s_key: '_o_group__medium', s_flag: 'b_show__medium' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 3.0, s_key: '_o_group__keychain', s_flag: 'b_show__keychain' },
             ];
+
+            // dispose old previews
+            o_self.f_dispose_variant_preview();
 
             for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
                 let o_variant = a_o_variant[n_i];
                 let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole, o_variant.n_ve);
                 let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
-                // keep the large variant for preview, dispose the rest
-                if (n_i === 0) {
-                    // remove old preview mesh
-                    if (o_self._o_group) {
-                        o_self._o_scene.remove(o_self._o_group);
-                        o_self._o_group.traverse(function (o_child) {
-                            if (o_child.geometry) o_child.geometry.dispose();
-                            if (o_child.material) o_child.material.dispose();
-                        });
-                    }
-
-                    // apply colormap + material to the large variant for display
-                    let o_mesh = o_group.children[0];
-                    if (o_self.b_colormap__height) {
-                        o_self.f_apply_vertex_color(o_mesh.geometry, 'plane');
-                    }
-                    o_mesh.geometry.computeVertexNormals();
-                    o_mesh.material.dispose();
-                    o_mesh.material = new THREE.MeshStandardMaterial({
-                        color: new THREE.Color(o_self.s_color__mesh),
-                        wireframe: o_self.b_wireframe,
-                        side: THREE.DoubleSide,
-                        flatShading: true,
-                        vertexColors: o_self.b_colormap__height,
-                    });
-
-                    o_self._o_scene.add(o_group);
-                    o_self._o_group = o_group;
-                    o_self._o_mesh = o_mesh;
-                } else {
-                    o_group.traverse(function (o_child) {
-                        if (o_child.geometry) o_child.geometry.dispose();
-                        if (o_child.material) o_child.material.dispose();
-                    });
+                // apply colormap + material for display
+                let o_mesh = o_group.children[0];
+                if (o_self.b_colormap__height) {
+                    o_self.f_apply_vertex_color(o_mesh.geometry, 'plane');
                 }
+                o_mesh.geometry.computeVertexNormals();
+                o_mesh.material.dispose();
+                o_mesh.material = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color(o_self.s_color__mesh),
+                    wireframe: o_self.b_wireframe,
+                    side: THREE.DoubleSide,
+                    flatShading: true,
+                    vertexColors: o_self.b_colormap__height,
+                });
+
+                o_self._o_scene.add(o_group);
+                o_self[o_variant.s_key] = o_group;
 
                 o_self.f_download_buffer(o_buffer, s_name + '_' + o_variant.s_suffix + '.stl');
 
@@ -2239,6 +2286,14 @@ let o_component__main = {
                     await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
                 }
             }
+
+            // show large by default, hide others
+            o_self.b_show__large = true;
+            o_self.b_show__medium = false;
+            o_self.b_show__keychain = false;
+            if (o_self._o_group__large) o_self._o_group__large.visible = true;
+            if (o_self._o_group__medium) o_self._o_group__medium.visible = false;
+            if (o_self._o_group__keychain) o_self._o_group__keychain.visible = false;
 
             // open preview panel
             o_self.b_preview = true;
