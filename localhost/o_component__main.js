@@ -1572,28 +1572,17 @@ let o_component__main = {
             }
 
             let n_y_min = Infinity;
-            let n_y_max = -Infinity;
             for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
                 let n_y = o_pos__top.getY(n_idx);
                 if (n_y < n_y_min) n_y_min = n_y;
-                if (n_y > n_y_max) n_y_max = n_y;
             }
-            let n_rad__chamfer = (n_deg__chamfer || 0) * Math.PI / 180;
-            let n_chamfer_height = n_thickness;
-            let n_chamfer_depth = (n_rad__chamfer > 0) ? n_chamfer_height / Math.tan(n_rad__chamfer) : 0;
 
+            // --- bottom vertices (flat at z_bottom) ---
             for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
-                let n_y = o_pos__top.getY(n_idx);
-                let n_z = n_z_bottom;
-                if (n_chamfer_depth > 0) {
-                    let n_dist = n_y - n_y_min;
-                    if (n_dist < n_chamfer_depth) {
-                        n_z = n_z_bottom + n_chamfer_height * (1 - n_dist / n_chamfer_depth);
-                    }
-                }
-                a_n__pos.push(o_pos__top.getX(n_idx), n_y, n_z);
+                a_n__pos.push(o_pos__top.getX(n_idx), o_pos__top.getY(n_idx), n_z_bottom);
             }
 
+            // --- text mask (raise bottom vertices where text is carved) ---
             if (a_n__text_mask && n_mm__text_depth > 0) {
                 for (let n_r = 0; n_r < n_row; n_r++) {
                     for (let n_c = 0; n_c < n_col; n_c++) {
@@ -1603,6 +1592,23 @@ let o_component__main = {
                             let n_pos_z = n_idx__bottom * 3 + 2;
                             a_n__pos[n_pos_z] += n_mm__text_depth;
                         }
+                    }
+                }
+            }
+
+            // --- chamfer: clip both top and bottom to angled plane ---
+            // the plane passes through (y_min, z_bottom) and rises at the
+            // chamfer angle into the solid, cutting a flat face the object
+            // can stand on when placed at that angle on a print bed
+            if (n_deg__chamfer > 0) {
+                let n_tan = Math.tan(n_deg__chamfer * Math.PI / 180);
+                let n_cnt__total = n_cnt__vertex * 2;
+                for (let n_idx = 0; n_idx < n_cnt__total; n_idx++) {
+                    let n_y = a_n__pos[n_idx * 3 + 1];
+                    let n_z = a_n__pos[n_idx * 3 + 2];
+                    let n_chamfer_z = n_z_bottom + (n_y - n_y_min) * n_tan;
+                    if (n_z < n_chamfer_z) {
+                        a_n__pos[n_idx * 3 + 2] = n_chamfer_z;
                     }
                 }
             }
@@ -2117,14 +2123,14 @@ let o_component__main = {
                 o_hole = { n_cx: n_hole_cx, n_cy: n_hole_cy, n_radius: n_hole_radius, n_segment: 32 };
             }
 
-            // scale baseplate proportionally to width (min 0.5mm)
-            let n_mm__baseplate = Math.max(0.5, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
+            // scale baseplate proportionally to width (min 2mm)
+            let n_mm__baseplate = Math.max(2, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
             n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
 
-            // chamfer spans the full plate Y so the ramp goes edge-to-edge
-            // angle = atan(baseplate / plate_y) — gentle slope, no support needed
-            let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
-            let n_deg__chamfer_variant = Math.atan(n_mm__baseplate / n_mm_plate_y) * 180 / Math.PI;
+            // 45° chamfer: cuts one edge so the piece can stand at 45° on
+            // the print bed — the plane clips through both top and bottom,
+            // creating a large flat face for printing
+            let n_deg__chamfer_variant = 45;
 
             let o_geom__solid = o_self.f_o_geometry__solid_plane(
                 o_geometry, n_mm__baseplate, n_deg__chamfer_variant,
