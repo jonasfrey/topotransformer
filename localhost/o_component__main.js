@@ -241,7 +241,7 @@ let o_component__main = {
                                         style: 'flex-wrap: wrap',
                                         a_o: [
                                             { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_generate_mesh', innerText: 'Generate 3D' },
-                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_download_stl', innerText: 'Download STL' },
+                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_download_stl_all', innerText: 'Download 3 STL' },
                                             { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_download_png', innerText: 'Download PNG' },
                                         ],
                                     },
@@ -1993,11 +1993,119 @@ let o_component__main = {
             URL.revokeObjectURL(s_url);
         },
 
-        f_download_stl: function () {
+        f_o_group__build_variant: function (n_mm_width, b_with_hole) {
             let o_self = this;
-            if (!o_self._o_group || !o_self._THREE) return;
-            let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_self._o_group);
-            o_self.f_download_buffer(o_buffer, 'bw_to_3d_' + o_self.s_type__geometry + '.stl');
+            let THREE = o_self._THREE;
+            let n_scl_x = o_self.n_scl_x__image;
+            let n_scl_y = o_self.n_scl_y__image;
+            let a_n__data = o_self.a_n__image_data;
+            let n_factor = o_self.n_factor;
+
+            let n_ratio = n_scl_x / n_scl_y;
+            let n_plane_x = n_ratio >= 1 ? 2 : 2 * n_ratio;
+            let n_plane_y = n_ratio >= 1 ? 2 / n_ratio : 2;
+            let o_geometry = new THREE.PlaneGeometry(n_plane_x, n_plane_y, n_scl_x - 1, n_scl_y - 1);
+
+            o_geometry.computeBoundingBox();
+            let o_box = o_geometry.boundingBox;
+            let n_max_dim = Math.max(
+                o_box.max.x - o_box.min.x,
+                o_box.max.y - o_box.min.y,
+                o_box.max.z - o_box.min.z
+            );
+            let n_scl = n_mm_width / n_max_dim;
+            o_geometry.scale(n_scl, n_scl, n_scl);
+
+            let n_mm__displacement = n_factor * 10 * (n_mm_width / o_self.n_mm__max_width);
+            o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, 'plane');
+
+            // text mask with correct scale for this width
+            let a_n__text_mask = null;
+            if (o_self.b_text__enabled && o_self.s_text__carve.length > 0 && o_self.n_m_per_pixel__3d > 0) {
+                let n_mm_plate_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
+                let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
+                let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
+                let n_scale = n_m__real_width * 1000 / n_mm_width;
+                let n_scale__nice = o_self.f_n__nice_round(n_scale);
+                let a_s__line = ['TopoPrints'];
+                if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
+                a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
+                let s_text = a_s__line.join('\n');
+                a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width);
+            } else if (o_self.b_text__enabled && o_self.s_text__carve.length > 0) {
+                let n_mm_plate_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
+                let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
+                a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, 0);
+            }
+
+            // hole for keychain variant
+            let o_hole = null;
+            if (b_with_hole) {
+                o_geometry.computeBoundingBox();
+                let o_bb = o_geometry.boundingBox;
+                let n_hole_radius = o_self.n_mm__hole_diameter / 2;
+                let n_hole_margin = o_self.n_mm__hole_margin;
+                let n_hole_cx, n_hole_cy;
+                let s_corner = o_self.s_corner__hole;
+                if (s_corner === 'tl') {
+                    n_hole_cx = o_bb.min.x + n_hole_margin + n_hole_radius;
+                    n_hole_cy = o_bb.max.y - n_hole_margin - n_hole_radius;
+                } else if (s_corner === 'tr') {
+                    n_hole_cx = o_bb.max.x - n_hole_margin - n_hole_radius;
+                    n_hole_cy = o_bb.max.y - n_hole_margin - n_hole_radius;
+                } else if (s_corner === 'bl') {
+                    n_hole_cx = o_bb.min.x + n_hole_margin + n_hole_radius;
+                    n_hole_cy = o_bb.min.y + n_hole_margin + n_hole_radius;
+                } else {
+                    n_hole_cx = o_bb.max.x - n_hole_margin - n_hole_radius;
+                    n_hole_cy = o_bb.min.y + n_hole_margin + n_hole_radius;
+                }
+                o_hole = { n_cx: n_hole_cx, n_cy: n_hole_cy, n_radius: n_hole_radius, n_segment: 32 };
+            }
+
+            let o_geom__solid = o_self.f_o_geometry__solid_plane(
+                o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer,
+                a_n__text_mask, o_self.n_mm__text_depth, o_hole
+            );
+            o_geom__solid.computeVertexNormals();
+
+            let o_group = new THREE.Group();
+            let o_mesh = new THREE.Mesh(o_geom__solid, new THREE.MeshBasicMaterial());
+            o_group.add(o_mesh);
+            o_geometry.dispose();
+
+            return o_group;
+        },
+
+        f_download_stl_all: async function () {
+            let o_self = this;
+            if (!o_self.a_n__image_data || !o_self._THREE) return;
+
+            let s_name = o_self.s_name__location || 'topo';
+            s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+
+            let a_o_variant = [
+                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false },
+                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true },
+            ];
+
+            for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
+                let o_variant = a_o_variant[n_i];
+                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole);
+                let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
+
+                o_group.traverse(function (o_child) {
+                    if (o_child.geometry) o_child.geometry.dispose();
+                    if (o_child.material) o_child.material.dispose();
+                });
+
+                o_self.f_download_buffer(o_buffer, s_name + '_' + o_variant.s_suffix + '.stl');
+
+                if (n_i < a_o_variant.length - 1) {
+                    await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
+                }
+            }
         },
 
         // ===================== TILING =====================
