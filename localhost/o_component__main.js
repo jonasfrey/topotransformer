@@ -356,6 +356,53 @@ let o_component__main = {
                                     { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__text_depth', min: '0.05', max: '2', step: '0.05', class: 'bw3d__range' },
                                 ],
                             },
+                            {
+                                class: 'bw3d__section',
+                                'v-if': "s_type__geometry === 'plane'",
+                                a_o: [
+                                    {
+                                        class: 'bw3d__row',
+                                        a_o: [
+                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_hole__enabled', id: 'chk_hole_enabled' },
+                                            { s_tag: 'label', for: 'chk_hole_enabled', class: 'bw3d__label', innerText: 'Corner hole' },
+                                        ],
+                                    },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                'v-if': "s_type__geometry === 'plane' && b_hole__enabled",
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Diameter (mm): {{ n_mm__hole_diameter.toFixed(1) }}' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__hole_diameter', min: '1', max: '10', step: '0.5', class: 'bw3d__range' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                'v-if': "s_type__geometry === 'plane' && b_hole__enabled",
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Margin (mm): {{ n_mm__hole_margin.toFixed(1) }}' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__hole_margin', min: '1', max: '10', step: '0.5', class: 'bw3d__range' },
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                'v-if': "s_type__geometry === 'plane' && b_hole__enabled",
+                                a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Corner' },
+                                    {
+                                        s_tag: 'select',
+                                        'v-model': 's_corner__hole',
+                                        class: 'bw3d__select',
+                                        a_o: [
+                                            { s_tag: 'option', value: 'tl', innerText: 'Top-left' },
+                                            { s_tag: 'option', value: 'tr', innerText: 'Top-right' },
+                                            { s_tag: 'option', value: 'bl', innerText: 'Bottom-left' },
+                                            { s_tag: 'option', value: 'br', innerText: 'Bottom-right' },
+                                        ],
+                                    },
+                                ],
+                            },
                         ],
                     },
                 ],
@@ -556,6 +603,10 @@ let o_component__main = {
             b_text__enabled: true,
             s_text__carve: 'TopoPrints',
             n_mm__text_depth: 0.2,
+            b_hole__enabled: false,
+            n_mm__hole_diameter: 5,
+            n_mm__hole_margin: 2,
+            s_corner__hole: 'tl',
 
             // --- export metadata for 3d scale ---
             n_m_per_pixel__3d: 0,
@@ -1386,7 +1437,32 @@ let o_component__main = {
                     let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
                     a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, n_m__real_width);
                 }
-                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer, a_n__text_mask, o_self.n_mm__text_depth);
+                // compute hole params
+                let o_hole = null;
+                if (o_self.b_hole__enabled) {
+                    o_geometry.computeBoundingBox();
+                    let o_bb = o_geometry.boundingBox;
+                    let n_hole_radius = o_self.n_mm__hole_diameter / 2;
+                    let n_hole_margin = o_self.n_mm__hole_margin;
+                    let n_hole_cx, n_hole_cy;
+                    let s_corner = o_self.s_corner__hole;
+                    if (s_corner === 'tl') {
+                        n_hole_cx = o_bb.min.x + n_hole_margin + n_hole_radius;
+                        n_hole_cy = o_bb.max.y - n_hole_margin - n_hole_radius;
+                    } else if (s_corner === 'tr') {
+                        n_hole_cx = o_bb.max.x - n_hole_margin - n_hole_radius;
+                        n_hole_cy = o_bb.max.y - n_hole_margin - n_hole_radius;
+                    } else if (s_corner === 'bl') {
+                        n_hole_cx = o_bb.min.x + n_hole_margin + n_hole_radius;
+                        n_hole_cy = o_bb.min.y + n_hole_margin + n_hole_radius;
+                    } else {
+                        n_hole_cx = o_bb.max.x - n_hole_margin - n_hole_radius;
+                        n_hole_cy = o_bb.min.y + n_hole_margin + n_hole_radius;
+                    }
+                    o_hole = { n_cx: n_hole_cx, n_cy: n_hole_cy, n_radius: n_hole_radius, n_segment: 32 };
+                }
+
+                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer, a_n__text_mask, o_self.n_mm__text_depth, o_hole);
 
                 if (o_self.b_colormap__height) {
                     o_self.f_apply_vertex_color(o_geom__solid, s_type);
@@ -1460,7 +1536,7 @@ let o_component__main = {
             o_pos.needsUpdate = true;
         },
 
-        f_o_geometry__solid_plane: function (o_geom__top, n_thickness, n_deg__chamfer, a_n__text_mask, n_mm__text_depth) {
+        f_o_geometry__solid_plane: function (o_geom__top, n_thickness, n_deg__chamfer, a_n__text_mask, n_mm__text_depth, o_hole) {
             let o_self = this;
             let THREE = o_self._THREE;
             let o_pos__top = o_geom__top.attributes.position;
@@ -1563,6 +1639,81 @@ let o_component__main = {
             }
             for (let n_idx = 0; n_idx < n_row - 1; n_idx++) {
                 f_add_wall_quad((n_idx + 1) * n_col + n_col - 1, n_idx * n_col + n_col - 1);
+            }
+
+            // --- cut corner hole ---
+            if (o_hole) {
+                let n_cx = o_hole.n_cx;
+                let n_cy = o_hole.n_cy;
+                let n_hole_r = o_hole.n_radius;
+                let n_segment = o_hole.n_segment || 32;
+                let n_r_sq = n_hole_r * n_hole_r;
+
+                // build mask: which grid vertices fall inside the hole
+                let a_b__inside = new Uint8Array(n_cnt__vertex);
+                for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                    let n_x = o_pos__top.getX(n_idx);
+                    let n_y = o_pos__top.getY(n_idx);
+                    let n_dx = n_x - n_cx;
+                    let n_dy = n_y - n_cy;
+                    if (n_dx * n_dx + n_dy * n_dy <= n_r_sq) {
+                        a_b__inside[n_idx] = 1;
+                    }
+                }
+
+                // filter out triangles where all 3 vertices are inside the hole
+                let a_n__idx_filtered = [];
+                for (let n_i = 0; n_i < a_n__idx.length; n_i += 3) {
+                    let n_a = a_n__idx[n_i];
+                    let n_b = a_n__idx[n_i + 1];
+                    let n_c = a_n__idx[n_i + 2];
+                    let n_a_grid = n_a % n_cnt__vertex;
+                    let n_b_grid = n_b % n_cnt__vertex;
+                    let n_c_grid = n_c % n_cnt__vertex;
+                    if (a_b__inside[n_a_grid] && a_b__inside[n_b_grid] && a_b__inside[n_c_grid]) {
+                        continue;
+                    }
+                    a_n__idx_filtered.push(n_a, n_b, n_c);
+                }
+                a_n__idx = a_n__idx_filtered;
+
+                // find Z range near the hole for cylinder wall height
+                let n_z_top__max = -Infinity;
+                let n_z_bottom__min = Infinity;
+                for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                    let n_x = o_pos__top.getX(n_idx);
+                    let n_y = o_pos__top.getY(n_idx);
+                    let n_dx = n_x - n_cx;
+                    let n_dy = n_y - n_cy;
+                    let n_dist_sq = n_dx * n_dx + n_dy * n_dy;
+                    if (n_dist_sq <= n_hole_r * n_hole_r * 2.25) {
+                        let n_zt = a_n__pos[n_idx * 3 + 2];
+                        let n_zb = a_n__pos[(n_cnt__vertex + n_idx) * 3 + 2];
+                        if (n_zt > n_z_top__max) n_z_top__max = n_zt;
+                        if (n_zb < n_z_bottom__min) n_z_bottom__min = n_zb;
+                    }
+                }
+
+                // add cylinder wall vertices (top ring + bottom ring)
+                let n_base__cyl = a_n__pos.length / 3;
+                for (let n_i = 0; n_i < n_segment; n_i++) {
+                    let n_angle = (n_i / n_segment) * Math.PI * 2;
+                    let n_px = n_cx + Math.cos(n_angle) * n_hole_r;
+                    let n_py = n_cy + Math.sin(n_angle) * n_hole_r;
+                    a_n__pos.push(n_px, n_py, n_z_top__max);
+                    a_n__pos.push(n_px, n_py, n_z_bottom__min);
+                }
+
+                // connect cylinder wall (normals pointing inward)
+                for (let n_i = 0; n_i < n_segment; n_i++) {
+                    let n_next = (n_i + 1) % n_segment;
+                    let n_top_a = n_base__cyl + n_i * 2;
+                    let n_bot_a = n_base__cyl + n_i * 2 + 1;
+                    let n_top_b = n_base__cyl + n_next * 2;
+                    let n_bot_b = n_base__cyl + n_next * 2 + 1;
+                    a_n__idx.push(n_top_a, n_bot_b, n_bot_a);
+                    a_n__idx.push(n_top_a, n_top_b, n_bot_b);
+                }
             }
 
             let o_geom = new THREE.BufferGeometry();
