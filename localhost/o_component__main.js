@@ -2060,10 +2060,46 @@ let o_component__main = {
         f_o_group__build_variant: function (n_mm_width, b_with_hole, n_ve_override) {
             let o_self = this;
             let THREE = o_self._THREE;
-            let n_scl_x = o_self.n_scl_x__image;
-            let n_scl_y = o_self.n_scl_y__image;
-            let a_n__data = o_self.a_n__image_data;
             let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
+
+            // downsample to ~5 px/mm — plenty for 3d printing
+            let n_max_px = Math.round(n_mm_width * 5);
+            let n_src_x = o_self.n_scl_x__image;
+            let n_src_y = o_self.n_scl_y__image;
+            let n_scl_x = n_src_x;
+            let n_scl_y = n_src_y;
+            let a_n__data = o_self.a_n__image_data;
+
+            if (n_scl_x > n_max_px || n_scl_y > n_max_px) {
+                let n_ds = Math.min(n_max_px / n_scl_x, n_max_px / n_scl_y);
+                n_scl_x = Math.max(2, Math.floor(n_scl_x * n_ds));
+                n_scl_y = Math.max(2, Math.floor(n_scl_y * n_ds));
+
+                // resample via canvas
+                let el_src = document.createElement('canvas');
+                el_src.width = n_src_x;
+                el_src.height = n_src_y;
+                let o_ctx_src = el_src.getContext('2d');
+                let o_img = o_ctx_src.createImageData(n_src_x, n_src_y);
+                for (let n_i = 0; n_i < o_self.a_n__image_data.length; n_i++) {
+                    let n_v = o_self.a_n__image_data[n_i];
+                    o_img.data[n_i * 4] = n_v;
+                    o_img.data[n_i * 4 + 1] = n_v;
+                    o_img.data[n_i * 4 + 2] = n_v;
+                    o_img.data[n_i * 4 + 3] = 255;
+                }
+                o_ctx_src.putImageData(o_img, 0, 0);
+                let el_dst = document.createElement('canvas');
+                el_dst.width = n_scl_x;
+                el_dst.height = n_scl_y;
+                let o_ctx_dst = el_dst.getContext('2d');
+                o_ctx_dst.drawImage(el_src, 0, 0, n_scl_x, n_scl_y);
+                let o_img_dst = o_ctx_dst.getImageData(0, 0, n_scl_x, n_scl_y);
+                a_n__data = new Uint8Array(n_scl_x * n_scl_y);
+                for (let n_i = 0; n_i < a_n__data.length; n_i++) {
+                    a_n__data[n_i] = o_img_dst.data[n_i * 4];
+                }
+            }
 
             let n_ratio = n_scl_x / n_scl_y;
             let n_plane_x = n_ratio >= 1 ? 2 : 2 * n_ratio;
