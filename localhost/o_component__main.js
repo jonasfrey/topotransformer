@@ -2189,7 +2189,7 @@ let o_component__main = {
             let a_o_variant = [
                 { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null },
                 { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 2.0 },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 3.0 },
             ];
 
             for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
