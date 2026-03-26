@@ -2084,13 +2084,13 @@ let o_component__main = {
             URL.revokeObjectURL(s_url);
         },
 
-        f_o_group__build_variant: function (n_mm_width, b_with_hole) {
+        f_o_group__build_variant: function (n_mm_width, b_with_hole, n_ve_override) {
             let o_self = this;
             let THREE = o_self._THREE;
             let n_scl_x = o_self.n_scl_x__image;
             let n_scl_y = o_self.n_scl_y__image;
             let a_n__data = o_self.a_n__image_data;
-            let n_factor = o_self.n_factor;
+            let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
 
             let n_ratio = n_scl_x / n_scl_y;
             let n_plane_x = n_ratio >= 1 ? 2 : 2 * n_ratio;
@@ -2121,7 +2121,7 @@ let o_component__main = {
                 let a_s__line = ['TopoPrints'];
                 if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                 a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
-                a_s__line.push('VE: ' + o_self.n_factor.toFixed(1));
+                a_s__line.push('VE: ' + n_factor.toFixed(1));
                 let s_text = a_s__line.join('\n');
                 a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width);
             } else if (o_self.b_text__enabled && o_self.s_text__carve.length > 0) {
@@ -2187,14 +2187,14 @@ let o_component__main = {
             s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
             let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false },
-                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true },
+                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null },
+                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 2.0 },
             ];
 
             for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
                 let o_variant = a_o_variant[n_i];
-                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole);
+                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole, o_variant.n_ve);
                 let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
                 // keep the large variant for preview, dispose the rest
