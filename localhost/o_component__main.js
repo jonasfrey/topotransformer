@@ -2258,7 +2258,7 @@ let o_component__main = {
             let a_o_variant = [
                 { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null, s_key: '_o_group__large', s_flag: 'b_show__large' },
                 { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null, s_key: '_o_group__medium', s_flag: 'b_show__medium' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 3.0, s_key: '_o_group__keychain', s_flag: 'b_show__keychain' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: null, s_key: '_o_group__keychain', s_flag: 'b_show__keychain' },
             ];
 
             // dispose old previews
