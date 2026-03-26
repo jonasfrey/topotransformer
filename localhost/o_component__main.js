@@ -1648,15 +1648,14 @@ let o_component__main = {
                 f_add_wall_quad((n_idx + 1) * n_col + n_col - 1, n_idx * n_col + n_col - 1);
             }
 
-            // --- cut corner hole ---
+            // --- cut corner hole (manifold) ---
             if (o_hole) {
                 let n_cx = o_hole.n_cx;
                 let n_cy = o_hole.n_cy;
                 let n_hole_r = o_hole.n_radius;
-                let n_segment = o_hole.n_segment || 32;
                 let n_r_sq = n_hole_r * n_hole_r;
 
-                // build mask: which grid vertices fall inside the hole
+                // mark which grid vertices fall inside the hole
                 let a_b__inside = new Uint8Array(n_cnt__vertex);
                 for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
                     let n_x = o_pos__top.getX(n_idx);
@@ -1668,23 +1667,7 @@ let o_component__main = {
                     }
                 }
 
-                // filter out triangles where all 3 vertices are inside the hole
-                let a_n__idx_filtered = [];
-                for (let n_i = 0; n_i < a_n__idx.length; n_i += 3) {
-                    let n_a = a_n__idx[n_i];
-                    let n_b = a_n__idx[n_i + 1];
-                    let n_c = a_n__idx[n_i + 2];
-                    let n_a_grid = n_a % n_cnt__vertex;
-                    let n_b_grid = n_b % n_cnt__vertex;
-                    let n_c_grid = n_c % n_cnt__vertex;
-                    if (a_b__inside[n_a_grid] && a_b__inside[n_b_grid] && a_b__inside[n_c_grid]) {
-                        continue;
-                    }
-                    a_n__idx_filtered.push(n_a, n_b, n_c);
-                }
-                a_n__idx = a_n__idx_filtered;
-
-                // find Z range near the hole for cylinder wall height
+                // find Z range near the hole for wall height
                 let n_z_top__max = -Infinity;
                 let n_z_bottom__min = Infinity;
                 for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
@@ -1693,7 +1676,7 @@ let o_component__main = {
                     let n_dx = n_x - n_cx;
                     let n_dy = n_y - n_cy;
                     let n_dist_sq = n_dx * n_dx + n_dy * n_dy;
-                    if (n_dist_sq <= n_hole_r * n_hole_r * 2.25) {
+                    if (n_dist_sq <= n_r_sq * 2.25) {
                         let n_zt = a_n__pos[n_idx * 3 + 2];
                         let n_zb = a_n__pos[(n_cnt__vertex + n_idx) * 3 + 2];
                         if (n_zt > n_z_top__max) n_z_top__max = n_zt;
@@ -1701,25 +1684,89 @@ let o_component__main = {
                     }
                 }
 
-                // add cylinder wall vertices (top ring + bottom ring)
-                let n_base__cyl = a_n__pos.length / 3;
-                for (let n_i = 0; n_i < n_segment; n_i++) {
-                    let n_angle = (n_i / n_segment) * Math.PI * 2;
-                    let n_px = n_cx + Math.cos(n_angle) * n_hole_r;
-                    let n_py = n_cy + Math.sin(n_angle) * n_hole_r;
-                    a_n__pos.push(n_px, n_py, n_z_top__max);
-                    a_n__pos.push(n_px, n_py, n_z_bottom__min);
+                // project inside vertices radially onto the circle boundary
+                // this keeps grid topology intact — boundary triangles become the
+                // transition from terrain to hole wall, no disconnected geometry
+                for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                    if (!a_b__inside[n_idx]) continue;
+                    let n_x = o_pos__top.getX(n_idx);
+                    let n_y = o_pos__top.getY(n_idx);
+                    let n_dx = n_x - n_cx;
+                    let n_dy = n_y - n_cy;
+                    let n_dist = Math.sqrt(n_dx * n_dx + n_dy * n_dy);
+
+                    let n_px, n_py;
+                    if (n_dist < 0.001) {
+                        n_px = n_cx + n_hole_r;
+                        n_py = n_cy;
+                    } else {
+                        n_px = n_cx + (n_dx / n_dist) * n_hole_r;
+                        n_py = n_cy + (n_dy / n_dist) * n_hole_r;
+                    }
+
+                    // top vertex → circle at wall-top z
+                    let n_off_t = n_idx * 3;
+                    a_n__pos[n_off_t] = n_px;
+                    a_n__pos[n_off_t + 1] = n_py;
+                    a_n__pos[n_off_t + 2] = n_z_top__max;
+
+                    // bottom vertex → circle at wall-bottom z
+                    let n_off_b = (n_cnt__vertex + n_idx) * 3;
+                    a_n__pos[n_off_b] = n_px;
+                    a_n__pos[n_off_b + 1] = n_py;
+                    a_n__pos[n_off_b + 2] = n_z_bottom__min;
                 }
 
-                // connect cylinder wall (normals pointing inward)
-                for (let n_i = 0; n_i < n_segment; n_i++) {
-                    let n_next = (n_i + 1) % n_segment;
-                    let n_top_a = n_base__cyl + n_i * 2;
-                    let n_bot_a = n_base__cyl + n_i * 2 + 1;
-                    let n_top_b = n_base__cyl + n_next * 2;
-                    let n_bot_b = n_base__cyl + n_next * 2 + 1;
-                    a_n__idx.push(n_top_a, n_bot_b, n_bot_a);
-                    a_n__idx.push(n_top_a, n_top_b, n_bot_b);
+                // remove cap triangles (all 3 vertices inside → degenerate disc)
+                let a_n__idx_filtered = [];
+                for (let n_i = 0; n_i < a_n__idx.length; n_i += 3) {
+                    let n_a = a_n__idx[n_i];
+                    let n_b = a_n__idx[n_i + 1];
+                    let n_c = a_n__idx[n_i + 2];
+                    if (a_b__inside[n_a % n_cnt__vertex] && a_b__inside[n_b % n_cnt__vertex] && a_b__inside[n_c % n_cnt__vertex]) {
+                        continue;
+                    }
+                    a_n__idx_filtered.push(n_a, n_b, n_c);
+                }
+                a_n__idx = a_n__idx_filtered;
+
+                // seal the hole wall: for each grid edge crossing the boundary
+                // (one vertex inside, one outside), add a wall quad connecting
+                // the top edge to the bottom edge — uses projected vertices so
+                // the wall is part of the same connected mesh
+                let f_add_hole_wall = function (n_v_in, n_v_out) {
+                    let n_t_in  = n_v_in;
+                    let n_t_out = n_v_out;
+                    let n_b_in  = n_v_in  + n_cnt__vertex;
+                    let n_b_out = n_v_out + n_cnt__vertex;
+                    // winding: normal faces into the hole (away from material)
+                    a_n__idx.push(n_t_in, n_b_in, n_b_out);
+                    a_n__idx.push(n_t_in, n_b_out, n_t_out);
+                };
+
+                // horizontal grid edges
+                for (let n_r = 0; n_r < n_row; n_r++) {
+                    for (let n_c = 0; n_c < n_col - 1; n_c++) {
+                        let n_v0 = n_r * n_col + n_c;
+                        let n_v1 = n_v0 + 1;
+                        if (a_b__inside[n_v0] && !a_b__inside[n_v1]) {
+                            f_add_hole_wall(n_v0, n_v1);
+                        } else if (!a_b__inside[n_v0] && a_b__inside[n_v1]) {
+                            f_add_hole_wall(n_v1, n_v0);
+                        }
+                    }
+                }
+                // vertical grid edges
+                for (let n_r = 0; n_r < n_row - 1; n_r++) {
+                    for (let n_c = 0; n_c < n_col; n_c++) {
+                        let n_v0 = n_r * n_col + n_c;
+                        let n_v1 = n_v0 + n_col;
+                        if (a_b__inside[n_v0] && !a_b__inside[n_v1]) {
+                            f_add_hole_wall(n_v0, n_v1);
+                        } else if (!a_b__inside[n_v0] && a_b__inside[n_v1]) {
+                            f_add_hole_wall(n_v1, n_v0);
+                        }
+                    }
                 }
             }
 
