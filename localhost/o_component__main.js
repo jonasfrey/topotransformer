@@ -1730,9 +1730,14 @@ let o_component__main = {
 
             let o_mat = new THREE.MeshBasicMaterial();
 
+            // ensure solid has normals (CSG needs matching attributes)
+            o_geom__solid.computeVertexNormals();
+            // add dummy UVs to solid so it matches cylinder attributes
+            let n_cnt__vert = o_geom__solid.attributes.position.count;
+            o_geom__solid.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n_cnt__vert * 2), 2));
+
             // reinforcement cylinder (6mm = hole_diameter + 1mm)
             let o_geom__reinforce = new THREE.CylinderGeometry(n_reinforce_radius, n_reinforce_radius, n_height, 32);
-            // rotate from Y-up to Z-up and position
             o_geom__reinforce.rotateX(Math.PI / 2);
             o_geom__reinforce.translate(n_hole_cx, n_hole_cy, n_z_center);
             let o_brush__reinforce = new CSG.Brush(o_geom__reinforce, o_mat);
