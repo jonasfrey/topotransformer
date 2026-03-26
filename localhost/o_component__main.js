@@ -257,7 +257,7 @@ let o_component__main = {
                             // variant preview toggles
                             {
                                 class: 'bw3d__section',
-                                'v-if': '_o_group__large || _o_group__medium || _o_group__keychain',
+                                'v-if': 'b_variant__generated',
                                 a_o: [
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Show variant' },
                                     {
@@ -669,6 +669,7 @@ let o_component__main = {
             b_show__large: true,
             b_show__medium: false,
             b_show__keychain: false,
+            b_variant__generated: false,
             _o_image__original: null,
             _el_canvas__grayscale: null,
             _n_id__animation: null,
@@ -2231,6 +2232,7 @@ let o_component__main = {
                 o_self._o_group = null;
                 o_self._o_mesh = null;
             }
+            o_self.b_variant__generated = false;
         },
 
         f_toggle_variant_preview: function (n_idx) {
@@ -2299,6 +2301,8 @@ let o_component__main = {
             if (o_self._o_group__large) o_self._o_group__large.visible = true;
             if (o_self._o_group__medium) o_self._o_group__medium.visible = false;
             if (o_self._o_group__keychain) o_self._o_group__keychain.visible = false;
+
+            o_self.b_variant__generated = true;
 
             // open preview panel
             o_self.b_preview = true;
