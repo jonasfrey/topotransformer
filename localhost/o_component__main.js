@@ -1168,6 +1168,7 @@ let o_component__main = {
                         let a_s__line = ['TopoPrints'];
                         if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                         a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
+                        a_s__line.push('VE: ' + o_self.n_factor.toFixed(1));
                         o_self.s_text__carve = a_s__line.join('\n');
                     }
                 };
@@ -2120,6 +2121,7 @@ let o_component__main = {
                 let a_s__line = ['TopoPrints'];
                 if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                 a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
+                a_s__line.push('VE: ' + o_self.n_factor.toFixed(1));
                 let s_text = a_s__line.join('\n');
                 a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width);
             } else if (o_self.b_text__enabled && o_self.s_text__carve.length > 0) {
