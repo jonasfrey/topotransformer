@@ -1195,6 +1195,8 @@ let o_component__main = {
                         o_self.n_factor = 1.0;
 
                         // build carve text
+                        let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
+                        let n_scale = n_m__real_width * 1000 / o_self.n_mm__max_width;
                         let n_scale__nice = o_self.f_n__nice_round(n_scale);
                         let a_s__line = ['TopoPrints'];
                         if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
