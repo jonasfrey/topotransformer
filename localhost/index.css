@@ -437,6 +437,18 @@ main {
     color: var(--c-accent);
 }
 
+.bw3d__toolbar_btn--primary {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: #fff;
+}
+
+.bw3d__toolbar_btn--primary:hover {
+    background: #7a63d9;
+    border-color: #7a63d9;
+    color: #fff;
+}
+
 .bw3d__overlay {
     position: absolute;
     min-width: 280px;

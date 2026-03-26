@@ -101,6 +101,13 @@ let o_component__main = {
                     { s_tag: 'div', class: 'main__toolbar_separator' },
                     {
                         s_tag: 'div',
+                        ':class': "'bw3d__toolbar_btn bw3d__toolbar_btn--primary interactable' + (!a_n__image_data ? ' disabled' : '')",
+                        'v-on:click': 'f_download_stl_all',
+                        innerText: 'Download 3 STL',
+                    },
+                    { s_tag: 'div', class: 'main__toolbar_separator' },
+                    {
+                        s_tag: 'div',
                         ':class': "'bw3d__toolbar_btn interactable' + (b_preview ? ' active' : '')",
                         'v-on:click': 'b_preview = !b_preview',
                         innerText: 'Preview',
