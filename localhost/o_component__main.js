@@ -105,6 +105,12 @@ let o_component__main = {
                         'v-on:click': 'f_download_stl_all',
                         innerText: 'Download 3 STL',
                     },
+                    {
+                        s_tag: 'div',
+                        ':class': "'bw3d__toolbar_btn bw3d__toolbar_btn--primary interactable' + (!a_n__image_data ? ' disabled' : '')",
+                        'v-on:click': 'f_download_openscad',
+                        innerText: 'Download OpenSCAD',
+                    },
                     { s_tag: 'div', class: 'main__toolbar_separator' },
                     {
                         s_tag: 'div',
@@ -2265,6 +2271,236 @@ let o_component__main = {
 
             // open preview panel
             o_self.b_preview = true;
+        },
+
+        // ===================== OPENSCAD EXPORT =====================
+
+        f_s__openscad_script: function (n_mm_width, s_heightmap_file, b_with_hole, n_ve_override) {
+            let o_self = this;
+            let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
+            let n_scl_x = o_self.n_scl_x__image;
+            let n_scl_y = o_self.n_scl_y__image;
+            let n_ratio = n_scl_x / n_scl_y;
+            let n_mm_plate_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
+            let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
+
+            // baseplate scaled proportionally (min 2mm)
+            let n_mm__baseplate = Math.max(2, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
+            n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
+
+            // displacement: surface() maps 0-255 → 0-100 units
+            let n_mm__displacement = 0;
+            let n_scale = 0;
+            if (o_self.n_m_per_pixel__3d > 0 && o_self.n_scl_x__map_selection > 0) {
+                let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
+                n_scale = n_m__real_width * 1000 / n_mm_width;
+                let n_m__elevation_range = o_self.n_m__elevation_max - o_self.n_m__elevation_min;
+                n_mm__displacement = (n_m__elevation_range * 1000 / n_scale) * n_factor;
+            } else {
+                n_mm__displacement = n_factor * 10 * (n_mm_width / o_self.n_mm__max_width);
+            }
+
+            let n_scl_z = n_mm__displacement / 100;
+            let n_scl_factor_x = n_mm_plate_x / n_scl_x;
+            let n_scl_factor_y = n_mm_plate_y / n_scl_y;
+
+            let n_outer_r = o_self.n_mm__hole_diameter / 2 + 1.5;
+            let n_inner_r = o_self.n_mm__hole_diameter / 2;
+            let n_hole_margin = o_self.n_mm__hole_margin;
+
+            // corner position for hole (relative to centered plate)
+            let n_hole_cx = 0;
+            let n_hole_cy = 0;
+            let s_corner = o_self.s_corner__hole;
+            if (s_corner === 'tl') {
+                n_hole_cx = -n_mm_plate_x / 2 + n_hole_margin + n_outer_r;
+                n_hole_cy = n_mm_plate_y / 2 - n_hole_margin - n_outer_r;
+            } else if (s_corner === 'tr') {
+                n_hole_cx = n_mm_plate_x / 2 - n_hole_margin - n_outer_r;
+                n_hole_cy = n_mm_plate_y / 2 - n_hole_margin - n_outer_r;
+            } else if (s_corner === 'bl') {
+                n_hole_cx = -n_mm_plate_x / 2 + n_hole_margin + n_outer_r;
+                n_hole_cy = -n_mm_plate_y / 2 + n_hole_margin + n_outer_r;
+            } else {
+                n_hole_cx = n_mm_plate_x / 2 - n_hole_margin - n_outer_r;
+                n_hole_cy = -n_mm_plate_y / 2 + n_hole_margin + n_outer_r;
+            }
+
+            // scale and text info
+            let n_scale__nice = n_scale > 0 ? o_self.f_n__nice_round(n_scale) : 0;
+            let s_scale_text = n_scale__nice > 0 ? '1:' + o_self.f_s__format_number(n_scale__nice) : '';
+            let s_location = o_self.s_name__location || '';
+            let n_total_height = n_mm__baseplate + n_mm__displacement;
+
+            // carve text lines
+            let a_s__carve = ['TopoPrints'];
+            if (s_location) a_s__carve.push(s_location);
+            if (s_scale_text) a_s__carve.push(s_scale_text);
+            a_s__carve.push('VE: ' + n_factor.toFixed(1));
+
+            let s = '';
+            s += '// TopoPrints — OpenSCAD model\n';
+            s += '// ' + (s_location || 'Custom heightmap') + '\n';
+            s += '// Width: ' + n_mm_width + 'mm, Scale: ' + (s_scale_text || 'N/A') + ', VE: ' + n_factor.toFixed(1) + '\n';
+            s += '// Place this file in the same folder as the heightmap PNG\n\n';
+
+            s += '$fn = 64;\n\n';
+
+            s += '// --- Parameters ---\n';
+            s += 'n_mm_plate_x = ' + n_mm_plate_x.toFixed(2) + ';\n';
+            s += 'n_mm_plate_y = ' + n_mm_plate_y.toFixed(2) + ';\n';
+            s += 'n_mm_baseplate = ' + n_mm__baseplate.toFixed(1) + ';\n';
+            s += 'n_mm_displacement = ' + n_mm__displacement.toFixed(3) + ';\n';
+            s += 'n_scl_x = ' + n_scl_factor_x.toFixed(6) + ';\n';
+            s += 'n_scl_y = ' + n_scl_factor_y.toFixed(6) + ';\n';
+            s += 'n_scl_z = ' + n_scl_z.toFixed(6) + ';\n';
+            s += 'n_total_height = ' + n_total_height.toFixed(2) + ';\n';
+            s += 's_heightmap = "' + s_heightmap_file + '";\n\n';
+
+            // chamfer params
+            s += '// --- Chamfer (45 deg cut on front edge for print bed) ---\n';
+            s += 'n_deg_chamfer = 45;\n\n';
+
+            // text carve params
+            if (o_self.b_text__enabled) {
+                s += '// --- Text carving ---\n';
+                s += 'n_mm_text_depth = ' + o_self.n_mm__text_depth.toFixed(2) + ';\n';
+                s += 'a_s_text = ' + JSON.stringify(a_s__carve) + ';\n';
+                s += 's_carve_text = str(a_s_text[0]';
+                for (let n_i = 1; n_i < a_s__carve.length; n_i++) {
+                    s += ', "\\n", a_s_text[' + n_i + ']';
+                }
+                s += ');\n\n';
+            }
+
+            // hole params
+            if (b_with_hole) {
+                s += '// --- Corner hole ---\n';
+                s += 'n_outer_r = ' + n_outer_r.toFixed(2) + ';\n';
+                s += 'n_inner_r = ' + n_inner_r.toFixed(2) + ';\n';
+                s += 'n_hole_cx = ' + n_hole_cx.toFixed(2) + ';\n';
+                s += 'n_hole_cy = ' + n_hole_cy.toFixed(2) + ';\n\n';
+            }
+
+            // modules
+            s += '// --- Modules ---\n\n';
+
+            s += 'module topo_surface() {\n';
+            s += '    translate([-n_mm_plate_x/2, -n_mm_plate_y/2, 0])\n';
+            s += '    scale([n_scl_x, n_scl_y, n_scl_z])\n';
+            s += '    surface(file=s_heightmap, center=false, convexity=5);\n';
+            s += '}\n\n';
+
+            s += 'module baseplate() {\n';
+            s += '    translate([0, 0, -n_mm_baseplate/2])\n';
+            s += '    cube([n_mm_plate_x, n_mm_plate_y, n_mm_baseplate], center=true);\n';
+            s += '}\n\n';
+
+            s += 'module solid_model() {\n';
+            s += '    union() {\n';
+            s += '        topo_surface();\n';
+            s += '        baseplate();\n';
+            s += '    }\n';
+            s += '}\n\n';
+
+            s += 'module chamfered_model() {\n';
+            s += '    intersection() {\n';
+            s += '        solid_model();\n';
+            s += '        // chamfer: cut front-bottom edge at 45 deg\n';
+            s += '        translate([0, -n_mm_plate_y/2, -n_mm_baseplate])\n';
+            s += '        rotate([n_deg_chamfer, 0, 0])\n';
+            s += '        translate([0, 0, -200])\n';
+            s += '        cube([n_mm_plate_x + 2, 400, 400], center=true);\n';
+            s += '    }\n';
+            s += '}\n\n';
+
+            if (o_self.b_text__enabled) {
+                s += 'module text_carve() {\n';
+                s += '    // text carved into bottom face, rotated diagonally\n';
+                s += '    n_diag_angle = atan2(n_mm_plate_y, n_mm_plate_x);\n';
+                s += '    translate([0, 0, -n_mm_baseplate])\n';
+                s += '    mirror([1, 0, 0])\n';
+                s += '    rotate([0, 0, -n_diag_angle])\n';
+                s += '    linear_extrude(height=n_mm_text_depth)\n';
+                s += '    text(s_carve_text, size=n_mm_plate_x * 0.08, halign="center", valign="center", font="sans-serif");\n';
+                s += '}\n\n';
+            }
+
+            if (b_with_hole) {
+                s += 'module hole_ring() {\n';
+                s += '    translate([n_hole_cx, n_hole_cy, -n_mm_baseplate - 0.01])\n';
+                s += '    difference() {\n';
+                s += '        cylinder(h=n_total_height + 0.02, r=n_outer_r);\n';
+                s += '        translate([0, 0, -0.1])\n';
+                s += '        cylinder(h=n_total_height + 0.24, r=n_inner_r);\n';
+                s += '    }\n';
+                s += '}\n\n';
+            }
+
+            // final assembly
+            s += '// --- Assembly ---\n';
+            if (b_with_hole) {
+                s += 'difference() {\n';
+                s += '    union() {\n';
+                s += '        chamfered_model();\n';
+                s += '        hole_ring();\n';
+                s += '    }\n';
+                if (o_self.b_text__enabled) {
+                    s += '    text_carve();\n';
+                }
+                s += '}\n';
+            } else if (o_self.b_text__enabled) {
+                s += 'difference() {\n';
+                s += '    chamfered_model();\n';
+                s += '    text_carve();\n';
+                s += '}\n';
+            } else {
+                s += 'chamfered_model();\n';
+            }
+
+            return s;
+        },
+
+        f_download_openscad: async function () {
+            let o_self = this;
+            if (!o_self.a_n__image_data) return;
+
+            let s_name = o_self.s_name__location || 'topo';
+            s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+            let s_heightmap_file = s_name + '_heightmap.png';
+
+            // download the heightmap PNG
+            if (o_self.s_data_url__heightmap) {
+                let o_a = document.createElement('a');
+                o_a.download = s_heightmap_file;
+                o_a.href = o_self.s_data_url__heightmap;
+                o_a.click();
+            }
+
+            await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
+
+            let a_o_variant = [
+                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null },
+                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: null },
+            ];
+
+            for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
+                let o_variant = a_o_variant[n_i];
+                let s_script = o_self.f_s__openscad_script(
+                    o_variant.n_mm_width, s_heightmap_file, o_variant.b_hole, o_variant.n_ve
+                );
+
+                let o_blob = new Blob([s_script], { type: 'text/plain' });
+                let s_url = URL.createObjectURL(o_blob);
+                let o_a = document.createElement('a');
+                o_a.href = s_url;
+                o_a.download = s_name + '_' + o_variant.s_suffix + '.scad';
+                o_a.click();
+                URL.revokeObjectURL(s_url);
+
+                await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
+            }
         },
 
         // ===================== TILING =====================
