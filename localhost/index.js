@@ -30,6 +30,7 @@ import { o_component__data } from './o_component__data.js';
 import { o_component__filebrowser } from './o_component__filebrowser.js';
 import { o_component__bw_image_to_3d } from './o_component__bw_image_to_3d.js';
 import { o_component__map } from './o_component__map.js';
+import { o_component__main } from './o_component__main.js';
 import './css_helper.js';
 
 import { o_logmsg__run_command } from "./runtimedata.js";
@@ -41,7 +42,12 @@ let o_state = reactive({
     a_o_route : [
         {
             path: '/',
-            redirect: '/data',
+            redirect: '/main',
+        },
+        {
+            path: '/main',
+            name: 'main',
+            component: markRaw(o_component__main),
         },
         {
             path: '/data',
