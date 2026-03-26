@@ -1788,43 +1788,6 @@ let o_component__main = {
                         }
                     }
                 }
-
-                // reinforcement boss: raised ring around the hole that tapers
-                // from full height at the hole edge to zero at the outer radius,
-                // adding material where keyring stress concentrates
-                let n_reinforce_wall = n_hole_r;
-                let n_reinforce_outer = n_hole_r + n_reinforce_wall;
-                let n_reinforce_outer_sq = n_reinforce_outer * n_reinforce_outer;
-                let n_reinforce_height = n_hole_r * 0.6;
-
-                for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
-                    if (a_b__inside[n_idx]) continue;
-                    let n_x = o_pos__top.getX(n_idx);
-                    let n_y = o_pos__top.getY(n_idx);
-                    let n_dx = n_x - n_cx;
-                    let n_dy = n_y - n_cy;
-                    let n_dist_sq = n_dx * n_dx + n_dy * n_dy;
-                    if (n_dist_sq >= n_reinforce_outer_sq) continue;
-
-                    let n_dist = Math.sqrt(n_dist_sq);
-                    // taper: 1.0 at hole edge, 0.0 at outer radius
-                    let n_t = 1 - (n_dist - n_hole_r) / n_reinforce_wall;
-                    n_t = Math.max(0, Math.min(1, n_t));
-                    let n_raise = n_reinforce_height * n_t;
-
-                    // raise top vertex
-                    a_n__pos[n_idx * 3 + 2] += n_raise;
-                    // lower bottom vertex by same amount for extra thickness
-                    a_n__pos[(n_cnt__vertex + n_idx) * 3 + 2] -= n_raise;
-                }
-
-                // also raise the projected hole-edge vertices (inside) to match
-                // so the wall top aligns with the reinforcement peak
-                for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
-                    if (!a_b__inside[n_idx]) continue;
-                    a_n__pos[n_idx * 3 + 2] += n_reinforce_height;
-                    a_n__pos[(n_cnt__vertex + n_idx) * 3 + 2] -= n_reinforce_height;
-                }
             }
 
             let o_geom = new THREE.BufferGeometry();
@@ -2224,8 +2187,8 @@ let o_component__main = {
             s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
             let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: 2.0 },
-                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: 2.0 },
+                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null },
+                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null },
                 { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 3.0 },
             ];
 
