@@ -1596,17 +1596,31 @@ let o_component__main = {
                 }
             }
 
-            // --- chamfer: clip both top and bottom to angled plane ---
-            // the plane passes through (y_min, z_bottom) and rises at the
-            // chamfer angle into the solid, cutting a flat face the object
-            // can stand on when placed at that angle on a print bed
+            // --- chamfer: cut one edge at angle so the piece can stand on it ---
+            // the plane starts at (y_min, z_bottom) and rises at the chamfer
+            // angle, but stops where it reaches the top surface at the y_min
+            // edge — only the edge gets cut, terrain beyond is untouched
             if (n_deg__chamfer > 0) {
                 let n_tan = Math.tan(n_deg__chamfer * Math.PI / 180);
+
+                // find max top-surface z along the y_min edge (last grid row)
+                let n_z_top_at_edge = -Infinity;
+                let n_off__last_row = (n_row - 1) * n_col;
+                for (let n_c = 0; n_c < n_col; n_c++) {
+                    let n_z = a_n__pos[(n_off__last_row + n_c) * 3 + 2];
+                    if (n_z > n_z_top_at_edge) n_z_top_at_edge = n_z;
+                }
+
+                // chamfer depth: Y distance where the plane reaches the edge top
+                let n_chamfer_max_depth = (n_z_top_at_edge - n_z_bottom) / n_tan;
+
                 let n_cnt__total = n_cnt__vertex * 2;
                 for (let n_idx = 0; n_idx < n_cnt__total; n_idx++) {
                     let n_y = a_n__pos[n_idx * 3 + 1];
+                    let n_dist = n_y - n_y_min;
+                    if (n_dist >= n_chamfer_max_depth) continue;
                     let n_z = a_n__pos[n_idx * 3 + 2];
-                    let n_chamfer_z = n_z_bottom + (n_y - n_y_min) * n_tan;
+                    let n_chamfer_z = n_z_bottom + n_dist * n_tan;
                     if (n_z < n_chamfer_z) {
                         a_n__pos[n_idx * 3 + 2] = n_chamfer_z;
                     }
