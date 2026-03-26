@@ -1237,8 +1237,6 @@ let o_component__main = {
             let o_self = this;
             let THREE = await import('three');
             let { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
-            let CSG = await import('three-bvh-csg');
-            o_self._CSG = CSG;
 
             let el_canvas = o_self.$refs.canvas__three;
             let el_container = o_self.$refs.container__three;
@@ -1481,12 +1479,32 @@ let o_component__main = {
                     let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
                     a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, n_m__real_width);
                 }
-                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer, a_n__text_mask, o_self.n_mm__text_depth);
-
-                // CSG hole if enabled
+                // compute hole params
+                let o_hole = null;
                 if (o_self.b_hole__enabled) {
-                    o_geom__solid = o_self.f_o_geometry__csg_hole(o_geom__solid, o_geometry);
+                    o_geometry.computeBoundingBox();
+                    let o_bb = o_geometry.boundingBox;
+                    let n_hole_radius = o_self.n_mm__hole_diameter / 2;
+                    let n_hole_margin = o_self.n_mm__hole_margin;
+                    let n_hole_cx, n_hole_cy;
+                    let s_corner = o_self.s_corner__hole;
+                    if (s_corner === 'tl') {
+                        n_hole_cx = o_bb.min.x + n_hole_margin + n_hole_radius;
+                        n_hole_cy = o_bb.max.y - n_hole_margin - n_hole_radius;
+                    } else if (s_corner === 'tr') {
+                        n_hole_cx = o_bb.max.x - n_hole_margin - n_hole_radius;
+                        n_hole_cy = o_bb.max.y - n_hole_margin - n_hole_radius;
+                    } else if (s_corner === 'bl') {
+                        n_hole_cx = o_bb.min.x + n_hole_margin + n_hole_radius;
+                        n_hole_cy = o_bb.min.y + n_hole_margin + n_hole_radius;
+                    } else {
+                        n_hole_cx = o_bb.max.x - n_hole_margin - n_hole_radius;
+                        n_hole_cy = o_bb.min.y + n_hole_margin + n_hole_radius;
+                    }
+                    o_hole = { n_cx: n_hole_cx, n_cy: n_hole_cy, n_radius: n_hole_radius };
                 }
+
+                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer, a_n__text_mask, o_self.n_mm__text_depth, o_hole);
 
                 if (o_self.b_colormap__height) {
                     o_self.f_apply_vertex_color(o_geom__solid, s_type);
@@ -1560,7 +1578,7 @@ let o_component__main = {
             o_pos.needsUpdate = true;
         },
 
-        f_o_geometry__solid_plane: function (o_geom__top, n_thickness, n_deg__chamfer, a_n__text_mask, n_mm__text_depth) {
+        f_o_geometry__solid_plane: function (o_geom__top, n_thickness, n_deg__chamfer, a_n__text_mask, n_mm__text_depth, o_hole) {
             let o_self = this;
             let THREE = o_self._THREE;
             let o_pos__top = o_geom__top.attributes.position;
@@ -1689,91 +1707,118 @@ let o_component__main = {
                 f_add_wall_quad((n_idx + 1) * n_col + n_col - 1, n_idx * n_col + n_col - 1);
             }
 
+            // --- cut corner hole (vertex projection) ---
+            if (o_hole) {
+                let n_cx = o_hole.n_cx;
+                let n_cy = o_hole.n_cy;
+                let n_hole_r = o_hole.n_radius;
+                let n_r_sq = n_hole_r * n_hole_r;
+
+                let a_b__inside = new Uint8Array(n_cnt__vertex);
+                for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                    let n_x = o_pos__top.getX(n_idx);
+                    let n_y = o_pos__top.getY(n_idx);
+                    let n_dx = n_x - n_cx;
+                    let n_dy = n_y - n_cy;
+                    if (n_dx * n_dx + n_dy * n_dy <= n_r_sq) {
+                        a_b__inside[n_idx] = 1;
+                    }
+                }
+
+                let n_z_top__max = -Infinity;
+                let n_z_bottom__min = Infinity;
+                for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                    let n_x = o_pos__top.getX(n_idx);
+                    let n_y = o_pos__top.getY(n_idx);
+                    let n_dx = n_x - n_cx;
+                    let n_dy = n_y - n_cy;
+                    let n_dist_sq = n_dx * n_dx + n_dy * n_dy;
+                    if (n_dist_sq <= n_r_sq * 2.25) {
+                        let n_zt = a_n__pos[n_idx * 3 + 2];
+                        let n_zb = a_n__pos[(n_cnt__vertex + n_idx) * 3 + 2];
+                        if (n_zt > n_z_top__max) n_z_top__max = n_zt;
+                        if (n_zb < n_z_bottom__min) n_z_bottom__min = n_zb;
+                    }
+                }
+
+                for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
+                    if (!a_b__inside[n_idx]) continue;
+                    let n_x = o_pos__top.getX(n_idx);
+                    let n_y = o_pos__top.getY(n_idx);
+                    let n_dx = n_x - n_cx;
+                    let n_dy = n_y - n_cy;
+                    let n_dist = Math.sqrt(n_dx * n_dx + n_dy * n_dy);
+
+                    let n_px, n_py;
+                    if (n_dist < 0.001) {
+                        n_px = n_cx + n_hole_r;
+                        n_py = n_cy;
+                    } else {
+                        n_px = n_cx + (n_dx / n_dist) * n_hole_r;
+                        n_py = n_cy + (n_dy / n_dist) * n_hole_r;
+                    }
+
+                    let n_off_t = n_idx * 3;
+                    a_n__pos[n_off_t] = n_px;
+                    a_n__pos[n_off_t + 1] = n_py;
+                    a_n__pos[n_off_t + 2] = n_z_top__max;
+
+                    let n_off_b = (n_cnt__vertex + n_idx) * 3;
+                    a_n__pos[n_off_b] = n_px;
+                    a_n__pos[n_off_b + 1] = n_py;
+                    a_n__pos[n_off_b + 2] = n_z_bottom__min;
+                }
+
+                let a_n__idx_filtered = [];
+                for (let n_i = 0; n_i < a_n__idx.length; n_i += 3) {
+                    let n_a = a_n__idx[n_i];
+                    let n_b = a_n__idx[n_i + 1];
+                    let n_c = a_n__idx[n_i + 2];
+                    if (a_b__inside[n_a % n_cnt__vertex] && a_b__inside[n_b % n_cnt__vertex] && a_b__inside[n_c % n_cnt__vertex]) {
+                        continue;
+                    }
+                    a_n__idx_filtered.push(n_a, n_b, n_c);
+                }
+                a_n__idx = a_n__idx_filtered;
+
+                let f_add_hole_wall = function (n_v_in, n_v_out) {
+                    let n_t_in  = n_v_in;
+                    let n_t_out = n_v_out;
+                    let n_b_in  = n_v_in  + n_cnt__vertex;
+                    let n_b_out = n_v_out + n_cnt__vertex;
+                    a_n__idx.push(n_t_in, n_b_in, n_b_out);
+                    a_n__idx.push(n_t_in, n_b_out, n_t_out);
+                };
+
+                for (let n_r = 0; n_r < n_row; n_r++) {
+                    for (let n_c = 0; n_c < n_col - 1; n_c++) {
+                        let n_v0 = n_r * n_col + n_c;
+                        let n_v1 = n_v0 + 1;
+                        if (a_b__inside[n_v0] && !a_b__inside[n_v1]) {
+                            f_add_hole_wall(n_v0, n_v1);
+                        } else if (!a_b__inside[n_v0] && a_b__inside[n_v1]) {
+                            f_add_hole_wall(n_v1, n_v0);
+                        }
+                    }
+                }
+                for (let n_r = 0; n_r < n_row - 1; n_r++) {
+                    for (let n_c = 0; n_c < n_col; n_c++) {
+                        let n_v0 = n_r * n_col + n_c;
+                        let n_v1 = n_v0 + n_col;
+                        if (a_b__inside[n_v0] && !a_b__inside[n_v1]) {
+                            f_add_hole_wall(n_v0, n_v1);
+                        } else if (!a_b__inside[n_v0] && a_b__inside[n_v1]) {
+                            f_add_hole_wall(n_v1, n_v0);
+                        }
+                    }
+                }
+            }
+
             let o_geom = new THREE.BufferGeometry();
             o_geom.setAttribute('position', new THREE.Float32BufferAttribute(a_n__pos, 3));
             o_geom.setIndex(a_n__idx);
 
             return o_geom;
-        },
-
-        // CSG hole: build a washer (ring with hole) and union it at the corner
-        // the washer already contains the hole — only a union is needed,
-        // no subtraction, and it overlaps only the topo edge, not the terrain
-        f_o_geometry__csg_hole: function (o_geom__solid, o_geom__plane) {
-            let o_self = this;
-            let THREE = o_self._THREE;
-            let CSG = o_self._CSG;
-            if (!CSG) return o_geom__solid;
-
-            let n_inner_r = o_self.n_mm__hole_diameter / 2;
-            let n_outer_r = n_inner_r + 1.5;
-            let n_hole_margin = o_self.n_mm__hole_margin;
-
-            // compute hole center from plane bounding box
-            o_geom__plane.computeBoundingBox();
-            let o_bb = o_geom__plane.boundingBox;
-            let n_hole_cx, n_hole_cy;
-            let s_corner = o_self.s_corner__hole;
-            if (s_corner === 'tl') {
-                n_hole_cx = o_bb.min.x + n_hole_margin + n_outer_r;
-                n_hole_cy = o_bb.max.y - n_hole_margin - n_outer_r;
-            } else if (s_corner === 'tr') {
-                n_hole_cx = o_bb.max.x - n_hole_margin - n_outer_r;
-                n_hole_cy = o_bb.max.y - n_hole_margin - n_outer_r;
-            } else if (s_corner === 'bl') {
-                n_hole_cx = o_bb.min.x + n_hole_margin + n_outer_r;
-                n_hole_cy = o_bb.min.y + n_hole_margin + n_outer_r;
-            } else {
-                n_hole_cx = o_bb.max.x - n_hole_margin - n_outer_r;
-                n_hole_cy = o_bb.min.y + n_hole_margin + n_outer_r;
-            }
-
-            // z range of the solid
-            o_geom__solid.computeBoundingBox();
-            let o_bb_solid = o_geom__solid.boundingBox;
-            let n_z_min = o_bb_solid.min.z;
-            let n_z_max = o_bb_solid.max.z;
-            let n_depth = n_z_max - n_z_min;
-
-            // build washer shape (ring with hole) in XY, extrude along Z
-            let o_shape = new THREE.Shape();
-            o_shape.absarc(0, 0, n_outer_r, 0, Math.PI * 2, false);
-            let o_hole_path = new THREE.Path();
-            o_hole_path.absarc(0, 0, n_inner_r, 0, Math.PI * 2, true);
-            o_shape.holes.push(o_hole_path);
-
-            let o_geom__washer = new THREE.ExtrudeGeometry(o_shape, {
-                depth: n_depth,
-                bevelEnabled: false,
-                curveSegments: 32,
-            });
-            o_geom__washer.translate(n_hole_cx, n_hole_cy, n_z_min);
-
-            // ensure matching attributes for CSG
-            o_geom__solid.computeVertexNormals();
-            let n_cnt__vert = o_geom__solid.attributes.position.count;
-            if (!o_geom__solid.attributes.uv) {
-                o_geom__solid.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n_cnt__vert * 2), 2));
-            }
-
-            let o_mat = new THREE.MeshBasicMaterial();
-
-            let o_brush__solid = new CSG.Brush(o_geom__solid, o_mat);
-            o_brush__solid.updateMatrixWorld();
-
-            let o_brush__washer = new CSG.Brush(o_geom__washer, o_mat);
-            o_brush__washer.updateMatrixWorld();
-
-            let o_evaluator = new CSG.Evaluator();
-            let o_result = o_evaluator.evaluate(o_brush__solid, o_brush__washer, CSG.ADDITION);
-
-            let o_geom__result = o_result.geometry;
-
-            // cleanup
-            o_geom__washer.dispose();
-            o_mat.dispose();
-
-            return o_geom__result;
         },
 
         f_apply_vertex_color: function (o_geometry, s_type) {
@@ -2154,15 +2199,35 @@ let o_component__main = {
             // creating a large flat face for printing
             let n_deg__chamfer_variant = 45;
 
+            // compute hole params for keychain variant
+            let o_hole = null;
+            if (b_with_hole) {
+                o_geometry.computeBoundingBox();
+                let o_bb = o_geometry.boundingBox;
+                let n_hole_radius = o_self.n_mm__hole_diameter / 2;
+                let n_hole_margin = o_self.n_mm__hole_margin;
+                let n_hole_cx, n_hole_cy;
+                let s_corner = o_self.s_corner__hole;
+                if (s_corner === 'tl') {
+                    n_hole_cx = o_bb.min.x + n_hole_margin + n_hole_radius;
+                    n_hole_cy = o_bb.max.y - n_hole_margin - n_hole_radius;
+                } else if (s_corner === 'tr') {
+                    n_hole_cx = o_bb.max.x - n_hole_margin - n_hole_radius;
+                    n_hole_cy = o_bb.max.y - n_hole_margin - n_hole_radius;
+                } else if (s_corner === 'bl') {
+                    n_hole_cx = o_bb.min.x + n_hole_margin + n_hole_radius;
+                    n_hole_cy = o_bb.min.y + n_hole_margin + n_hole_radius;
+                } else {
+                    n_hole_cx = o_bb.max.x - n_hole_margin - n_hole_radius;
+                    n_hole_cy = o_bb.min.y + n_hole_margin + n_hole_radius;
+                }
+                o_hole = { n_cx: n_hole_cx, n_cy: n_hole_cy, n_radius: n_hole_radius };
+            }
+
             let o_geom__solid = o_self.f_o_geometry__solid_plane(
                 o_geometry, n_mm__baseplate, n_deg__chamfer_variant,
-                a_n__text_mask, o_self.n_mm__text_depth
+                a_n__text_mask, o_self.n_mm__text_depth, o_hole
             );
-
-            // CSG hole for keychain variant
-            if (b_with_hole) {
-                o_geom__solid = o_self.f_o_geometry__csg_hole(o_geom__solid, o_geometry);
-            }
 
             o_geom__solid.computeVertexNormals();
 
