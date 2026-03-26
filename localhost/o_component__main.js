@@ -1596,31 +1596,35 @@ let o_component__main = {
                 }
             }
 
-            // --- chamfer: cut one edge at angle so the piece can stand on it ---
-            // the plane starts at (y_min, z_bottom) and rises at the chamfer
-            // angle, but stops where it reaches the top surface at the y_min
-            // edge — only the edge gets cut, terrain beyond is untouched
+            // --- chamfer: cut front-bottom corner at angle ---
+            // cuts the corner where the front wall (y_min) meets the bottom,
+            // creating a flat face the piece can stand on at that angle on
+            // the print bed.  the plane descends from the top of the front
+            // edge down to z_bottom, so the face goes from
+            // (y_min, z_top_edge) to (y_min + depth, z_bottom)
             if (n_deg__chamfer > 0) {
                 let n_tan = Math.tan(n_deg__chamfer * Math.PI / 180);
 
-                // find max top-surface z along the y_min edge (last grid row)
+                // height of the front edge = top surface at y_min to z_bottom
                 let n_z_top_at_edge = -Infinity;
                 let n_off__last_row = (n_row - 1) * n_col;
                 for (let n_c = 0; n_c < n_col; n_c++) {
                     let n_z = a_n__pos[(n_off__last_row + n_c) * 3 + 2];
                     if (n_z > n_z_top_at_edge) n_z_top_at_edge = n_z;
                 }
+                let n_edge_height = n_z_top_at_edge - n_z_bottom;
 
-                // chamfer depth: Y distance where the plane reaches the edge top
-                let n_chamfer_max_depth = (n_z_top_at_edge - n_z_bottom) / n_tan;
+                // chamfer depth in Y: how far from y_min the cut extends
+                let n_chamfer_depth = n_edge_height / n_tan;
 
+                // plane descends from (y_min → z_top_edge) to (y_min+depth → z_bottom)
                 let n_cnt__total = n_cnt__vertex * 2;
                 for (let n_idx = 0; n_idx < n_cnt__total; n_idx++) {
                     let n_y = a_n__pos[n_idx * 3 + 1];
                     let n_dist = n_y - n_y_min;
-                    if (n_dist >= n_chamfer_max_depth) continue;
+                    if (n_dist >= n_chamfer_depth) continue;
                     let n_z = a_n__pos[n_idx * 3 + 2];
-                    let n_chamfer_z = n_z_bottom + n_dist * n_tan;
+                    let n_chamfer_z = n_z_top_at_edge - n_dist * n_tan;
                     if (n_z < n_chamfer_z) {
                         a_n__pos[n_idx * 3 + 2] = n_chamfer_z;
                     }
