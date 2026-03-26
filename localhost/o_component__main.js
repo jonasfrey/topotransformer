@@ -2070,8 +2070,12 @@ let o_component__main = {
                 o_hole = { n_cx: n_hole_cx, n_cy: n_hole_cy, n_radius: n_hole_radius, n_segment: 32 };
             }
 
+            // scale baseplate proportionally to width (min 0.5mm)
+            let n_mm__baseplate = Math.max(0.5, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
+            n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
+
             let o_geom__solid = o_self.f_o_geometry__solid_plane(
-                o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer,
+                o_geometry, n_mm__baseplate, o_self.n_deg__chamfer,
                 a_n__text_mask, o_self.n_mm__text_depth, o_hole
             );
             o_geom__solid.computeVertexNormals();
