@@ -2121,8 +2121,13 @@ let o_component__main = {
             let n_mm__baseplate = Math.max(0.5, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
             n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
 
+            // chamfer spans the full plate Y so the ramp goes edge-to-edge
+            // angle = atan(baseplate / plate_y) — gentle slope, no support needed
+            let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
+            let n_deg__chamfer_variant = Math.atan(n_mm__baseplate / n_mm_plate_y) * 180 / Math.PI;
+
             let o_geom__solid = o_self.f_o_geometry__solid_plane(
-                o_geometry, n_mm__baseplate, o_self.n_deg__chamfer,
+                o_geometry, n_mm__baseplate, n_deg__chamfer_variant,
                 a_n__text_mask, o_self.n_mm__text_depth, o_hole
             );
             o_geom__solid.computeVertexNormals();
