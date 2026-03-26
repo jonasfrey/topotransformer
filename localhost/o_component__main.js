@@ -1690,81 +1690,81 @@ let o_component__main = {
             return o_geom;
         },
 
-        // CSG hole: union 6mm reinforcement cylinder, subtract 5mm hole cylinder
-        // produces clean manifold geometry via boolean operations
+        // CSG hole: build a washer (ring with hole) and union it at the corner
+        // the washer already contains the hole — only a union is needed,
+        // no subtraction, and it overlaps only the topo edge, not the terrain
         f_o_geometry__csg_hole: function (o_geom__solid, o_geom__plane) {
             let o_self = this;
             let THREE = o_self._THREE;
             let CSG = o_self._CSG;
             if (!CSG) return o_geom__solid;
 
+            let n_inner_r = o_self.n_mm__hole_diameter / 2;
+            let n_outer_r = n_inner_r + 1.5;
+            let n_hole_margin = o_self.n_mm__hole_margin;
+
             // compute hole center from plane bounding box
             o_geom__plane.computeBoundingBox();
             let o_bb = o_geom__plane.boundingBox;
-            let n_hole_radius = o_self.n_mm__hole_diameter / 2;
-            let n_hole_margin = o_self.n_mm__hole_margin;
-            let n_reinforce_radius = (o_self.n_mm__hole_diameter + 1) / 2;
             let n_hole_cx, n_hole_cy;
             let s_corner = o_self.s_corner__hole;
             if (s_corner === 'tl') {
-                n_hole_cx = o_bb.min.x + n_hole_margin + n_reinforce_radius;
-                n_hole_cy = o_bb.max.y - n_hole_margin - n_reinforce_radius;
+                n_hole_cx = o_bb.min.x + n_hole_margin + n_outer_r;
+                n_hole_cy = o_bb.max.y - n_hole_margin - n_outer_r;
             } else if (s_corner === 'tr') {
-                n_hole_cx = o_bb.max.x - n_hole_margin - n_reinforce_radius;
-                n_hole_cy = o_bb.max.y - n_hole_margin - n_reinforce_radius;
+                n_hole_cx = o_bb.max.x - n_hole_margin - n_outer_r;
+                n_hole_cy = o_bb.max.y - n_hole_margin - n_outer_r;
             } else if (s_corner === 'bl') {
-                n_hole_cx = o_bb.min.x + n_hole_margin + n_reinforce_radius;
-                n_hole_cy = o_bb.min.y + n_hole_margin + n_reinforce_radius;
+                n_hole_cx = o_bb.min.x + n_hole_margin + n_outer_r;
+                n_hole_cy = o_bb.min.y + n_hole_margin + n_outer_r;
             } else {
-                n_hole_cx = o_bb.max.x - n_hole_margin - n_reinforce_radius;
-                n_hole_cy = o_bb.min.y + n_hole_margin + n_reinforce_radius;
+                n_hole_cx = o_bb.max.x - n_hole_margin - n_outer_r;
+                n_hole_cy = o_bb.min.y + n_hole_margin + n_outer_r;
             }
 
-            // find z range of the solid
+            // z range of the solid
             o_geom__solid.computeBoundingBox();
             let o_bb_solid = o_geom__solid.boundingBox;
-            let n_z_min = o_bb_solid.min.z - 1;
-            let n_z_max = o_bb_solid.max.z + 1;
-            let n_height = n_z_max - n_z_min;
-            let n_z_center = (n_z_min + n_z_max) / 2;
+            let n_z_min = o_bb_solid.min.z;
+            let n_z_max = o_bb_solid.max.z;
+            let n_depth = n_z_max - n_z_min;
+
+            // build washer shape (ring with hole) in XY, extrude along Z
+            let o_shape = new THREE.Shape();
+            o_shape.absarc(0, 0, n_outer_r, 0, Math.PI * 2, false);
+            let o_hole_path = new THREE.Path();
+            o_hole_path.absarc(0, 0, n_inner_r, 0, Math.PI * 2, true);
+            o_shape.holes.push(o_hole_path);
+
+            let o_geom__washer = new THREE.ExtrudeGeometry(o_shape, {
+                depth: n_depth,
+                bevelEnabled: false,
+                curveSegments: 32,
+            });
+            o_geom__washer.translate(n_hole_cx, n_hole_cy, n_z_min);
+
+            // ensure matching attributes for CSG
+            o_geom__solid.computeVertexNormals();
+            let n_cnt__vert = o_geom__solid.attributes.position.count;
+            if (!o_geom__solid.attributes.uv) {
+                o_geom__solid.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n_cnt__vert * 2), 2));
+            }
 
             let o_mat = new THREE.MeshBasicMaterial();
 
-            // ensure solid has normals (CSG needs matching attributes)
-            o_geom__solid.computeVertexNormals();
-            // add dummy UVs to solid so it matches cylinder attributes
-            let n_cnt__vert = o_geom__solid.attributes.position.count;
-            o_geom__solid.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n_cnt__vert * 2), 2));
-
-            // reinforcement cylinder (6mm = hole_diameter + 1mm)
-            let o_geom__reinforce = new THREE.CylinderGeometry(n_reinforce_radius, n_reinforce_radius, n_height, 32);
-            o_geom__reinforce.rotateX(Math.PI / 2);
-            o_geom__reinforce.translate(n_hole_cx, n_hole_cy, n_z_center);
-            let o_brush__reinforce = new CSG.Brush(o_geom__reinforce, o_mat);
-            o_brush__reinforce.updateMatrixWorld();
-
-            // hole cylinder (5mm = hole_diameter)
-            let o_geom__hole = new THREE.CylinderGeometry(n_hole_radius, n_hole_radius, n_height + 2, 32);
-            o_geom__hole.rotateX(Math.PI / 2);
-            o_geom__hole.translate(n_hole_cx, n_hole_cy, n_z_center);
-            let o_brush__hole = new CSG.Brush(o_geom__hole, o_mat);
-            o_brush__hole.updateMatrixWorld();
-
-            // solid brush
             let o_brush__solid = new CSG.Brush(o_geom__solid, o_mat);
             o_brush__solid.updateMatrixWorld();
 
+            let o_brush__washer = new CSG.Brush(o_geom__washer, o_mat);
+            o_brush__washer.updateMatrixWorld();
+
             let o_evaluator = new CSG.Evaluator();
-            // step 1: union solid + reinforcement cylinder
-            let o_result = o_evaluator.evaluate(o_brush__solid, o_brush__reinforce, CSG.ADDITION);
-            // step 2: subtract hole cylinder
-            o_result = o_evaluator.evaluate(o_result, o_brush__hole, CSG.SUBTRACTION);
+            let o_result = o_evaluator.evaluate(o_brush__solid, o_brush__washer, CSG.ADDITION);
 
             let o_geom__result = o_result.geometry;
 
             // cleanup
-            o_geom__reinforce.dispose();
-            o_geom__hole.dispose();
+            o_geom__washer.dispose();
             o_mat.dispose();
 
             return o_geom__result;
@@ -2062,8 +2062,8 @@ let o_component__main = {
             let THREE = o_self._THREE;
             let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
 
-            // downsample to ~5 px/mm — plenty for 3d printing
-            let n_max_px = Math.round(n_mm_width * 5);
+            // downsample to ~20 px/mm — enough for resin printing
+            let n_max_px = Math.round(n_mm_width * 20);
             let n_src_x = o_self.n_scl_x__image;
             let n_src_y = o_self.n_scl_y__image;
             let n_scl_x = n_src_x;
