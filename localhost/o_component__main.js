@@ -2108,7 +2108,7 @@ let o_component__main = {
             URL.revokeObjectURL(s_url);
         },
 
-        f_o_group__build_variant: function (n_mm_width, b_with_hole, n_ve_override) {
+        f_o_group__build_variant: function (n_mm_width, b_with_hole, n_ve_override, n_mm__baseplate_override) {
             let o_self = this;
             let THREE = o_self._THREE;
             let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
@@ -2190,9 +2190,14 @@ let o_component__main = {
                 a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, 0);
             }
 
-            // scale baseplate proportionally to width (min 2mm)
-            let n_mm__baseplate = Math.max(2, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
-            n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
+            // scale baseplate proportionally to width (min 1mm), or use override
+            let n_mm__baseplate;
+            if (n_mm__baseplate_override != null) {
+                n_mm__baseplate = n_mm__baseplate_override;
+            } else {
+                n_mm__baseplate = Math.max(1, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
+                n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
+            }
 
             // 45° chamfer: cuts one edge so the piece can stand at 45° on
             // the print bed — the plane clips through both top and bottom,
@@ -2286,9 +2291,9 @@ let o_component__main = {
             s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
             let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null, s_key: '_o_group__large', s_flag: 'b_show__large' },
-                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null, s_key: '_o_group__medium', s_flag: 'b_show__medium' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: null, s_key: '_o_group__keychain', s_flag: 'b_show__keychain' },
+                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, s_key: '_o_group__large', s_flag: 'b_show__large' },
+                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, s_key: '_o_group__medium', s_flag: 'b_show__medium' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1, s_key: '_o_group__keychain', s_flag: 'b_show__keychain' },
             ];
 
             // dispose old previews
@@ -2296,7 +2301,7 @@ let o_component__main = {
 
             for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
                 let o_variant = a_o_variant[n_i];
-                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole, o_variant.n_ve);
+                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate);
                 let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
                 // apply colormap + material for display
@@ -2340,7 +2345,7 @@ let o_component__main = {
 
         // ===================== OPENSCAD EXPORT =====================
 
-        f_s__openscad_script: function (n_mm_width, s_heightmap_file, b_with_hole, n_ve_override) {
+        f_s__openscad_script: function (n_mm_width, s_heightmap_file, b_with_hole, n_ve_override, n_mm__baseplate_override) {
             let o_self = this;
             let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
             let n_scl_x = o_self.n_scl_x__image;
@@ -2349,9 +2354,14 @@ let o_component__main = {
             let n_mm_plate_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
             let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
 
-            // baseplate scaled proportionally (min 2mm)
-            let n_mm__baseplate = Math.max(2, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
-            n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
+            // baseplate scaled proportionally (min 1mm), or use override
+            let n_mm__baseplate;
+            if (n_mm__baseplate_override != null) {
+                n_mm__baseplate = n_mm__baseplate_override;
+            } else {
+                n_mm__baseplate = Math.max(1, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
+                n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
+            }
 
             // displacement: surface() maps 0-255 → 0-100 units
             let n_mm__displacement = 0;
@@ -2545,15 +2555,15 @@ let o_component__main = {
             await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
 
             let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null },
-                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: null },
+                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null, n_mm__baseplate: null },
+                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null, n_mm__baseplate: null },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1 },
             ];
 
             for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
                 let o_variant = a_o_variant[n_i];
                 let s_script = o_self.f_s__openscad_script(
-                    o_variant.n_mm_width, s_heightmap_file, o_variant.b_hole, o_variant.n_ve
+                    o_variant.n_mm_width, s_heightmap_file, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate
                 );
 
                 let o_blob = new Blob([s_script], { type: 'text/plain' });
