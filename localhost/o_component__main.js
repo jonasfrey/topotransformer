@@ -1195,25 +1195,28 @@ let o_component__main = {
                 // process image for 3d generation
                 let o_self = this;
                 let o_image = new Image();
-                o_image.onload = function () {
-                    o_self.f_process_image(o_image);
+                await new Promise(function (f_resolve) {
+                    o_image.onload = function () {
+                        o_self.f_process_image(o_image);
 
-                    // set factor to 1.0 (true scale) — user can adjust
-                    if (o_self.n_m_per_pixel__3d > 0 && o_self.n_scl_x__map_selection > 0) {
-                        o_self.n_factor = 1.0;
+                        // set factor to 1.0 (true scale) — user can adjust
+                        if (o_self.n_m_per_pixel__3d > 0 && o_self.n_scl_x__map_selection > 0) {
+                            o_self.n_factor = 1.0;
 
-                        // build carve text
-                        let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
-                        let n_scale = n_m__real_width * 1000 / o_self.n_mm__max_width;
-                        let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                        let a_s__line = ['TopoPrints'];
-                        if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
-                        a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
-                        a_s__line.push('VE: ' + o_self.n_factor.toFixed(1));
-                        o_self.s_text__carve = a_s__line.join('\n');
-                    }
-                };
-                o_image.src = o_result.s_data_url;
+                            // build carve text
+                            let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
+                            let n_scale = n_m__real_width * 1000 / o_self.n_mm__max_width;
+                            let n_scale__nice = o_self.f_n__nice_round(n_scale);
+                            let a_s__line = ['TopoPrints'];
+                            if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
+                            a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
+                            a_s__line.push('VE: ' + o_self.n_factor.toFixed(1));
+                            o_self.s_text__carve = a_s__line.join('\n');
+                        }
+                        f_resolve();
+                    };
+                    o_image.src = o_result.s_data_url;
+                });
 
                 // open preview panel
                 this.b_preview = true;
@@ -2298,8 +2301,8 @@ let o_component__main = {
                 { n_mm_width: 220, s_suffix: 'large_220mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__large_ve2', s_flag: 'b_show__large_ve2' },
                 { n_mm_width: 160, s_suffix: 'medium_160mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium_ve1', s_flag: 'b_show__medium_ve1' },
                 { n_mm_width: 160, s_suffix: 'medium_160mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium_ve2', s_flag: 'b_show__medium_ve2' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: true, n_ve: 1.0, n_mm__baseplate: 1.5, n_pxmm: null, s_key: '_o_group__keychain_ve1', s_flag: 'b_show__keychain_ve1' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1.5, n_pxmm: null, s_key: '_o_group__keychain_ve2', s_flag: 'b_show__keychain_ve2' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: true, n_ve: 1.0, n_mm__baseplate: 2, n_pxmm: null, s_key: '_o_group__keychain_ve1', s_flag: 'b_show__keychain_ve1' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: true, n_ve: 2.0, n_mm__baseplate: 2, n_pxmm: null, s_key: '_o_group__keychain_ve2', s_flag: 'b_show__keychain_ve2' },
             ];
 
             // dispose old previews
