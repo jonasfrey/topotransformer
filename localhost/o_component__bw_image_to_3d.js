@@ -1400,7 +1400,7 @@ let o_component__bw_image_to_3d = {
             let n_margin = Math.round(Math.min(n_col, n_row) * 0.04);
             let n_bar_height = Math.max(3, Math.round(n_row * 0.012));
             let n_font__ruler = Math.max(8, Math.round(n_row * 0.035));
-            let n_ruler_zone_h = 0; // total pixel height reserved for ruler in bottom-left
+            let n_ruler_zone_h = 0; // total pixel height reserved for ruler in top-left
             let n_ruler_zone_w = 0;
             let n_m__ruler = 0;
             let n_px__ruler = 0;
@@ -1419,8 +1419,8 @@ let o_component__bw_image_to_3d = {
             }
 
             // shrink available plate area for text to avoid ruler zone
-            // ruler is in bottom-left corner (when viewed from below) = bottom-right in canvas
-            // reduce effective plate height to leave room at the bottom
+            // ruler is in top-left corner (when viewed from below) = top-right in canvas
+            // reduce effective plate height to leave room at the top
             let n_mm_plate_y__text = n_mm_plate_y;
             if (n_ruler_zone_h > 0) {
                 n_mm_plate_y__text = n_mm_plate_y - n_ruler_zone_h / n_px_per_mm_y;
@@ -1439,8 +1439,8 @@ let o_component__bw_image_to_3d = {
             let n_font_final = n_font_ref * n_scl_fit;
             let n_font_px = n_font_final * n_px_per_mm;
 
-            // draw rotated text centered in the upper portion of the canvas
-            let n_row__text_center = (n_row - n_ruler_zone_h) / 2;
+            // draw rotated text centered in the lower portion of the canvas (ruler is at top)
+            let n_row__text_center = (n_row + n_ruler_zone_h) / 2;
             o_ctx.clearRect(0, 0, n_col, n_row);
             o_ctx.save();
             o_ctx.translate(n_col / 2, n_row__text_center);
@@ -1458,13 +1458,13 @@ let o_component__bw_image_to_3d = {
             }
             o_ctx.restore();
 
-            // draw ruler bar in bottom-right corner (mirrored = bottom-left when viewed from below)
+            // draw ruler bar in top-right corner (mirrored = top-left when viewed from below)
             if (n_m__real_width > 0 && n_px__ruler > 0) {
                 o_ctx.save();
                 // mirror X to match the text mirroring
                 o_ctx.scale(-1, 1);
                 let n_bar_x = -(n_col - n_margin);
-                let n_bar_y = n_row - n_margin - n_bar_height;
+                let n_bar_y = n_margin + n_font__ruler + n_bar_height;
                 // bar
                 o_ctx.fillStyle = 'white';
                 o_ctx.fillRect(n_bar_x, n_bar_y, n_px__ruler, n_bar_height);
