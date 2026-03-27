@@ -269,9 +269,12 @@ let o_component__main = {
                                     {
                                         class: 'bw3d__row',
                                         a_o: [
-                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__large ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(0)', innerText: 'Large' },
-                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__medium ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(1)', innerText: 'Medium' },
-                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__keychain ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(2)', innerText: 'Keychain' },
+                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__large_ve1 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(0)', innerText: 'Large 1x' },
+                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__large_ve2 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(1)', innerText: 'Large 2x' },
+                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__medium_ve1 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(2)', innerText: 'Medium 1x' },
+                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__medium_ve2 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(3)', innerText: 'Medium 2x' },
+                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__keychain_ve1 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(4)', innerText: 'Key 1x' },
+                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__keychain_ve2 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(5)', innerText: 'Key 2x' },
                                         ],
                                     },
                                 ],
@@ -669,12 +672,18 @@ let o_component__main = {
             _o_light__directional: null,
             _o_mesh: null,
             _o_group: null,
-            _o_group__large: null,
-            _o_group__medium: null,
-            _o_group__keychain: null,
-            b_show__large: true,
-            b_show__medium: false,
-            b_show__keychain: false,
+            _o_group__large_ve1: null,
+            _o_group__large_ve2: null,
+            _o_group__medium_ve1: null,
+            _o_group__medium_ve2: null,
+            _o_group__keychain_ve1: null,
+            _o_group__keychain_ve2: null,
+            b_show__large_ve1: true,
+            b_show__large_ve2: false,
+            b_show__medium_ve1: false,
+            b_show__medium_ve2: false,
+            b_show__keychain_ve1: false,
+            b_show__keychain_ve2: false,
             b_variant__generated: false,
             _o_image__original: null,
             _el_canvas__grayscale: null,
@@ -815,7 +824,7 @@ let o_component__main = {
         if (this._o_resize_observer) this._o_resize_observer.disconnect();
         if (this._o_renderer) this._o_renderer.dispose();
         if (this._o_control) this._o_control.dispose();
-        let a_s_key__cleanup = ['_o_group', '_o_group__large', '_o_group__medium', '_o_group__keychain'];
+        let a_s_key__cleanup = ['_o_group', '_o_group__large_ve1', '_o_group__large_ve2', '_o_group__medium_ve1', '_o_group__medium_ve2', '_o_group__keychain_ve1', '_o_group__keychain_ve2'];
         for (let n_i = 0; n_i < a_s_key__cleanup.length; n_i++) {
             if (this[a_s_key__cleanup[n_i]]) {
                 this[a_s_key__cleanup[n_i]].traverse(function (o_child) {
@@ -2247,7 +2256,7 @@ let o_component__main = {
 
         f_dispose_variant_preview: function () {
             let o_self = this;
-            let a_s_key = ['_o_group__large', '_o_group__medium', '_o_group__keychain'];
+            let a_s_key = ['_o_group__large_ve1', '_o_group__large_ve2', '_o_group__medium_ve1', '_o_group__medium_ve2', '_o_group__keychain_ve1', '_o_group__keychain_ve2'];
             for (let n_i = 0; n_i < a_s_key.length; n_i++) {
                 let o_group = o_self[a_s_key[n_i]];
                 if (o_group) {
@@ -2273,8 +2282,8 @@ let o_component__main = {
 
         f_toggle_variant_preview: function (n_idx) {
             let o_self = this;
-            let a_s_key = ['_o_group__large', '_o_group__medium', '_o_group__keychain'];
-            let a_s_flag = ['b_show__large', 'b_show__medium', 'b_show__keychain'];
+            let a_s_key = ['_o_group__large_ve1', '_o_group__large_ve2', '_o_group__medium_ve1', '_o_group__medium_ve2', '_o_group__keychain_ve1', '_o_group__keychain_ve2'];
+            let a_s_flag = ['b_show__large_ve1', 'b_show__large_ve2', 'b_show__medium_ve1', 'b_show__medium_ve2', 'b_show__keychain_ve1', 'b_show__keychain_ve2'];
 
             o_self[a_s_flag[n_idx]] = !o_self[a_s_flag[n_idx]];
             let o_group = o_self[a_s_key[n_idx]];
@@ -2292,9 +2301,12 @@ let o_component__main = {
             s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
             let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__large', s_flag: 'b_show__large' },
-                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium', s_flag: 'b_show__medium' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1, n_pxmm: null, s_key: '_o_group__keychain', s_flag: 'b_show__keychain' },
+                { n_mm_width: 220, s_suffix: 'large_220mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__large_ve1', s_flag: 'b_show__large_ve1' },
+                { n_mm_width: 220, s_suffix: 'large_220mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__large_ve2', s_flag: 'b_show__large_ve2' },
+                { n_mm_width: 160, s_suffix: 'medium_160mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium_ve1', s_flag: 'b_show__medium_ve1' },
+                { n_mm_width: 160, s_suffix: 'medium_160mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium_ve2', s_flag: 'b_show__medium_ve2' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: true, n_ve: 1.0, n_mm__baseplate: 1, n_pxmm: null, s_key: '_o_group__keychain_ve1', s_flag: 'b_show__keychain_ve1' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1, n_pxmm: null, s_key: '_o_group__keychain_ve2', s_flag: 'b_show__keychain_ve2' },
             ];
 
             // dispose old previews
@@ -2330,13 +2342,12 @@ let o_component__main = {
                 }
             }
 
-            // show large by default, hide others
-            o_self.b_show__large = true;
-            o_self.b_show__medium = false;
-            o_self.b_show__keychain = false;
-            if (o_self._o_group__large) o_self._o_group__large.visible = true;
-            if (o_self._o_group__medium) o_self._o_group__medium.visible = false;
-            if (o_self._o_group__keychain) o_self._o_group__keychain.visible = false;
+            // show large ve1 by default, hide others
+            for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
+                let b_visible = n_i === 0;
+                o_self[a_o_variant[n_i].s_flag] = b_visible;
+                if (o_self[a_o_variant[n_i].s_key]) o_self[a_o_variant[n_i].s_key].visible = b_visible;
+            }
 
             o_self.b_variant__generated = true;
 
@@ -2556,9 +2567,12 @@ let o_component__main = {
             await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
 
             let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: null, n_mm__baseplate: null },
-                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: null, n_mm__baseplate: null },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1 },
+                { n_mm_width: 220, s_suffix: 'large_220mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null },
+                { n_mm_width: 220, s_suffix: 'large_220mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null },
+                { n_mm_width: 160, s_suffix: 'medium_160mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null },
+                { n_mm_width: 160, s_suffix: 'medium_160mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: true, n_ve: 1.0, n_mm__baseplate: 1 },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1 },
             ];
 
             for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
