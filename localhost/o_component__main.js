@@ -2108,13 +2108,14 @@ let o_component__main = {
             URL.revokeObjectURL(s_url);
         },
 
-        f_o_group__build_variant: function (n_mm_width, b_with_hole, n_ve_override, n_mm__baseplate_override) {
+        f_o_group__build_variant: function (n_mm_width, b_with_hole, n_ve_override, n_mm__baseplate_override, n_pxmm) {
             let o_self = this;
             let THREE = o_self._THREE;
             let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
 
-            // downsample to ~20 px/mm — enough for resin printing
-            let n_max_px = Math.round(n_mm_width * 20);
+            // downsample to n_pxmm px/mm (default 10)
+            n_pxmm = n_pxmm || 10;
+            let n_max_px = Math.round(n_mm_width * n_pxmm);
             let n_src_x = o_self.n_scl_x__image;
             let n_src_y = o_self.n_scl_y__image;
             let n_scl_x = n_src_x;
@@ -2291,9 +2292,9 @@ let o_component__main = {
             s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
             let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, s_key: '_o_group__large', s_flag: 'b_show__large' },
-                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, s_key: '_o_group__medium', s_flag: 'b_show__medium' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1, s_key: '_o_group__keychain', s_flag: 'b_show__keychain' },
+                { n_mm_width: 220, s_suffix: 'large_220mm', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__large', s_flag: 'b_show__large' },
+                { n_mm_width: 160, s_suffix: 'medium_160mm', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium', s_flag: 'b_show__medium' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1, n_pxmm: null, s_key: '_o_group__keychain', s_flag: 'b_show__keychain' },
             ];
 
             // dispose old previews
@@ -2301,7 +2302,7 @@ let o_component__main = {
 
             for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
                 let o_variant = a_o_variant[n_i];
-                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate);
+                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate, o_variant.n_pxmm);
                 let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
                 // apply colormap + material for display
