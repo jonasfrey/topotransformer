@@ -102,14 +102,8 @@ let o_component__main = {
                     {
                         s_tag: 'div',
                         ':class': "'bw3d__toolbar_btn bw3d__toolbar_btn--primary interactable' + (!a_n__image_data ? ' disabled' : '')",
-                        'v-on:click': 'f_download_stl_all',
-                        innerText: 'Download 3 STL',
-                    },
-                    {
-                        s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn bw3d__toolbar_btn--primary interactable' + (!a_n__image_data ? ' disabled' : '')",
-                        'v-on:click': 'f_download_openscad',
-                        innerText: 'Download OpenSCAD',
+                        'v-on:click': 'f_generate_and_download',
+                        innerText: 'Generate & Download',
                     },
                     { s_tag: 'div', class: 'main__toolbar_separator' },
                     {
@@ -254,8 +248,7 @@ let o_component__main = {
                                         style: 'flex-wrap: wrap',
                                         a_o: [
                                             { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_generate_mesh', innerText: 'Generate 3D' },
-                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_download_stl_all', innerText: 'Download 3 STL' },
-                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_download_png', innerText: 'Download PNG' },
+                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_generate_and_download', innerText: 'Generate & Download' },
                                         ],
                                     },
                                 ],
@@ -2591,6 +2584,24 @@ let o_component__main = {
 
                 await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
             }
+        },
+
+        f_generate_and_download: async function () {
+            let o_self = this;
+
+            // run export if heightmap not yet generated
+            if (!o_self.a_n__image_data) {
+                await o_self.f_export();
+            }
+            if (!o_self.a_n__image_data) return;
+
+            // download 6 STL files + preview
+            await o_self.f_download_stl_all();
+
+            await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
+
+            // download heightmap PNG + 6 OpenSCAD scripts
+            await o_self.f_download_openscad();
         },
 
         // ===================== TILING =====================
