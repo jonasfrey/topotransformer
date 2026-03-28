@@ -101,7 +101,7 @@ let o_component__main = {
                     { s_tag: 'div', class: 'main__toolbar_separator' },
                     {
                         s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn bw3d__toolbar_btn--primary interactable' + (!a_n__image_data ? ' disabled' : '')",
+                        ':class': "'bw3d__toolbar_btn bw3d__toolbar_btn--primary interactable'",
                         'v-on:click': 'f_generate_and_download',
                         innerText: 'Generate & Download',
                     },
