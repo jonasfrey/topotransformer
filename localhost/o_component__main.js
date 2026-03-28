@@ -2592,10 +2592,8 @@ let o_component__main = {
         f_generate_and_download: async function () {
             let o_self = this;
 
-            // run export if heightmap not yet generated
-            if (!o_self.a_n__image_data) {
-                await o_self.f_export();
-            }
+            // always run export to capture the current map view
+            await o_self.f_export();
             if (!o_self.a_n__image_data) return;
 
             // download 6 STL files + preview
