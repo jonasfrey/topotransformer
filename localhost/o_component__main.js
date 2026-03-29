@@ -1991,7 +1991,7 @@ let o_component__main = {
             let n_font_final = n_font_ref * n_scl_fit;
             let n_font_px = n_font_final * n_px_per_mm;
 
-            let n_row__text_center = (n_row - n_ruler_zone_h) / 2;
+            let n_row__text_center = (n_row + n_ruler_zone_h) / 2;
             o_ctx.clearRect(0, 0, n_col, n_row);
             o_ctx.save();
             o_ctx.translate(n_col / 2, n_row__text_center);
@@ -2012,7 +2012,7 @@ let o_component__main = {
                 o_ctx.save();
                 o_ctx.scale(-1, 1);
                 let n_bar_x = -(n_col - n_margin);
-                let n_bar_y = n_row - n_margin - n_bar_height;
+                let n_bar_y = n_margin + n_font__ruler + n_bar_height;
                 o_ctx.fillStyle = 'white';
                 o_ctx.fillRect(n_bar_x, n_bar_y, n_px__ruler, n_bar_height);
                 let n_tick_h = n_bar_height * 3;
