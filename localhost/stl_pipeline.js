@@ -372,7 +372,8 @@ let f_n_m__ruler_distance = function (n_m__real_width) {
     return n_best;
 };
 
-let f_a_n__text_mask = function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width) {
+let f_a_n__text_mask = function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width, n_mm__chamfer_depth) {
+    n_mm__chamfer_depth = n_mm__chamfer_depth || 0;
     let el_canvas = document.createElement('canvas');
     el_canvas.width = n_col;
     el_canvas.height = n_row;
@@ -413,10 +414,11 @@ let f_a_n__text_mask = function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_tex
         n_ruler_zone_h = n_margin + n_font__ruler + n_bar_height * 2 + n_margin;
     }
 
-    let n_mm_plate_y__text = n_mm_plate_y;
-    if (n_ruler_zone_h > 0) {
-        n_mm_plate_y__text = n_mm_plate_y - n_ruler_zone_h / n_px_per_mm_y;
-    }
+    // chamfer dead zone: pixels at the bottom (front edge) that get cut away
+    let n_chamfer_zone_h = n_mm__chamfer_depth * n_px_per_mm_y;
+
+    // available text area excludes ruler zone (top) and chamfer zone (bottom)
+    let n_mm_plate_y__text = n_mm_plate_y - n_ruler_zone_h / n_px_per_mm_y - n_mm__chamfer_depth;
     let n_rad__diagonal_text = Math.atan2(n_mm_plate_y__text, n_mm_plate_x);
     let n_cos_t = Math.cos(n_rad__diagonal_text);
     let n_sin_t = Math.sin(n_rad__diagonal_text);
@@ -430,7 +432,8 @@ let f_a_n__text_mask = function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_tex
     let n_font_final = n_font_ref * n_scl_fit;
     let n_font_px = n_font_final * n_px_per_mm;
 
-    let n_row__text_center = (n_row + n_ruler_zone_h) / 2;
+    // center text between ruler zone (top) and chamfer zone (bottom)
+    let n_row__text_center = (n_ruler_zone_h + n_row - n_chamfer_zone_h) / 2;
     o_ctx.clearRect(0, 0, n_col, n_row);
     o_ctx.save();
     o_ctx.translate(n_col / 2, n_row__text_center);
@@ -545,6 +548,20 @@ let f_o_group__build_variant = function (THREE, o_config, a_n__image_data, n_scl
     let n_mm__displacement = f_n_mm__displacement(o_config, n_mm_width, n_factor);
     f_apply_displacement(THREE, o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, 'plane');
 
+    // baseplate (computed first so chamfer depth is available for text mask)
+    let n_mm__baseplate;
+    if (n_mm__baseplate_override != null) {
+        n_mm__baseplate = n_mm__baseplate_override;
+    } else {
+        n_mm__baseplate = Math.max(1, o_config.n_mm__baseplate * (n_mm_width / o_config.n_mm__max_width));
+        n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
+    }
+
+    let n_deg__chamfer = 45;
+
+    // chamfer depth in mm: how far the 45° cut extends from front edge into bottom face
+    let n_mm__chamfer_depth = (n_mm__baseplate + n_mm__displacement) / Math.tan(n_deg__chamfer * Math.PI / 180);
+
     // text mask
     let a_n__text_mask_local = null;
     if (o_config.b_text__enabled && o_config.n_m_per_pixel > 0) {
@@ -558,19 +575,8 @@ let f_o_group__build_variant = function (THREE, o_config, a_n__image_data, n_scl
         a_s__line.push('1:' + f_s__format_number(n_scale__nice));
         a_s__line.push('VE: ' + n_factor.toFixed(1));
         let s_text = a_s__line.join('\n');
-        a_n__text_mask_local = f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width);
+        a_n__text_mask_local = f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width, n_mm__chamfer_depth);
     }
-
-    // baseplate
-    let n_mm__baseplate;
-    if (n_mm__baseplate_override != null) {
-        n_mm__baseplate = n_mm__baseplate_override;
-    } else {
-        n_mm__baseplate = Math.max(1, o_config.n_mm__baseplate * (n_mm_width / o_config.n_mm__max_width));
-        n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
-    }
-
-    let n_deg__chamfer = 45;
 
     // hole
     let o_hole = null;
