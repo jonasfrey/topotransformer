@@ -1,6 +1,7 @@
 // Copyright (C) [2026] [Jonas Immanuel Frey] - Licensed under GPLv2. See LICENSE file for details.
 
 import { f_o_html_from_o_js } from "./lib/handyhelpers.js";
+import { f_generate_and_download_all } from "./stl_pipeline.js";
 
 // WGS84 (lat/lon degrees) → CH1903+ / LV95 (EPSG:2056)
 // Official swisstopo approximate formulas
@@ -44,15 +45,9 @@ let o_component__switzerland = {
                 a_o: [
                     {
                         s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn interactable' + (b_exporting ? ' disabled' : '')",
-                        'v-on:click': 'f_export(false)',
-                        innerText: "{{ b_exporting ? 'Exporting...' : 'Export' }}",
-                    },
-                    {
-                        s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn interactable' + (b_exporting ? ' disabled' : '')",
-                        'v-on:click': 'f_export(true)',
-                        innerText: "{{ b_exporting ? 'Exporting...' : 'Export & Open in 3D' }}",
+                        ':class': "'bw3d__toolbar_btn bw3d__toolbar_btn--primary interactable' + (b_exporting ? ' disabled' : '')",
+                        'v-on:click': 'f_generate_and_download',
+                        innerText: "{{ b_exporting ? s_status || 'Generating...' : 'Generate & Download' }}",
                     },
                     {
                         s_tag: 'div',
@@ -611,34 +606,68 @@ let o_component__switzerland = {
             };
         },
 
-        f_export: async function (b_open_3d) {
-            if (this.b_exporting || !this._o_map) return;
-            this.b_exporting = true;
-            this.s_status = 'Preparing export...';
+        f_generate_and_download: async function () {
+            let o_self = this;
+            if (o_self.b_exporting || !o_self._o_map) return;
+            o_self.b_exporting = true;
+            o_self.s_status = 'Fetching elevation data...';
 
             try {
-                let o_result = await this.f_s_data_url__from_elevation();
+                let o_result = await o_self.f_s_data_url__from_elevation();
 
-                if (b_open_3d) {
-                    globalThis.o_state.s_data_url__map_elevation = o_result.s_data_url;
-                    globalThis.o_state.n_m_per_pixel = o_result.n_m_per_pixel;
-                    globalThis.o_state.n_m__elevation_min = o_result.n_m__elevation_min;
-                    globalThis.o_state.n_m__elevation_max = o_result.n_m__elevation_max;
-                    globalThis.o_state.n_scl_x__selection = o_result.n_scl_x__selection;
-                    globalThis.o_state.s_name__location = this.s_name__location;
-                    this.$router.push('/bw-image-to-3d');
-                } else {
-                    let o_a = document.createElement('a');
-                    o_a.download = 'elevation_ch.png';
-                    o_a.href = o_result.s_data_url;
-                    o_a.click();
-                }
+                // process heightmap into grayscale array for STL generation
+                o_self.s_status = 'Processing heightmap...';
+                let o_image = new Image();
+                let a_n__gray = await new Promise(function (f_resolve) {
+                    o_image.onload = function () {
+                        let n_w = o_image.width;
+                        let n_h = o_image.height;
+                        let el_canvas = document.createElement('canvas');
+                        el_canvas.width = n_w;
+                        el_canvas.height = n_h;
+                        let o_ctx = el_canvas.getContext('2d');
+                        o_ctx.drawImage(o_image, 0, 0);
+                        let o_data = o_ctx.getImageData(0, 0, n_w, n_h);
+                        let a_n = new Uint8Array(n_w * n_h);
+                        for (let n_i = 0; n_i < a_n.length; n_i++) {
+                            a_n[n_i] = o_data.data[n_i * 4];
+                        }
+                        f_resolve(a_n);
+                    };
+                    o_image.src = o_result.s_data_url;
+                });
+
+                // load Three.js
+                o_self.s_status = 'Loading 3D engine...';
+                let THREE = await import('three');
+
+                let o_config = {
+                    n_m_per_pixel: o_result.n_m_per_pixel,
+                    n_scl_x__map_selection: o_result.n_scl_x__selection,
+                    n_m__elevation_min: o_result.n_m__elevation_min,
+                    n_m__elevation_max: o_result.n_m__elevation_max,
+                    n_mm__max_width: 240,
+                    n_mm__baseplate: 5,
+                    b_text__enabled: true,
+                    n_mm__text_depth: 0.2,
+                    n_mm__hole_diameter: 5,
+                    n_mm__hole_margin: 2,
+                    s_corner__hole: 'tl',
+                    s_name__location: o_self.s_name__location,
+                };
+
+                await f_generate_and_download_all(
+                    THREE, o_config,
+                    a_n__gray, o_image.width, o_image.height,
+                    o_result.s_data_url,
+                    function (s_msg) { o_self.s_status = s_msg; }
+                );
             } catch (o_error) {
-                this.s_status = 'Error: ' + o_error.message;
+                o_self.s_status = 'Error: ' + o_error.message;
                 console.error(o_error);
             }
 
-            this.b_exporting = false;
+            o_self.b_exporting = false;
         },
     },
 };
