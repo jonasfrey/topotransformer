@@ -2,6 +2,29 @@
 
 import { f_o_html_from_o_js } from "./lib/handyhelpers.js";
 
+// WGS84 (lat/lon degrees) → CH1903+ / LV95 (EPSG:2056)
+// Official swisstopo approximate formulas
+let f_o_lv95__from_wgs84 = function (n_lat, n_lon) {
+    // auxiliary values: convert to arc seconds, then to offset units
+    let n_phi = (n_lat * 3600 - 169028.66) / 10000;
+    let n_lambda = (n_lon * 3600 - 26782.5) / 10000;
+
+    let n_easting = 2600072.37
+        + 211455.93 * n_lambda
+        - 10938.51 * n_lambda * n_phi
+        - 0.36 * n_lambda * n_phi * n_phi
+        - 44.54 * n_lambda * n_lambda * n_lambda;
+
+    let n_northing = 1200147.07
+        + 308807.95 * n_phi
+        + 3745.25 * n_lambda * n_lambda
+        + 76.63 * n_phi * n_phi
+        - 194.56 * n_lambda * n_lambda * n_phi
+        + 119.79 * n_phi * n_phi * n_phi;
+
+    return { n_easting, n_northing };
+};
+
 let o_component__switzerland = {
     name: 'component-switzerland',
     template: (await f_o_html_from_o_js({
@@ -422,17 +445,20 @@ let o_component__switzerland = {
         },
 
         f_a_n_elevation__from_profile: async function (n_lon__start, n_lat, n_lon__end, n_cnt__point) {
-            // fetch elevation along a horizontal line using swisstopo profile API
+            // convert WGS84 endpoints to LV95 (swisstopo API requires sr=2056)
+            let o_lv95__start = f_o_lv95__from_wgs84(n_lat, n_lon__start);
+            let o_lv95__end = f_o_lv95__from_wgs84(n_lat, n_lon__end);
+
             let o_geom = {
                 type: 'LineString',
                 coordinates: [
-                    [n_lon__start, n_lat],
-                    [n_lon__end, n_lat],
+                    [o_lv95__start.n_easting, o_lv95__start.n_northing],
+                    [o_lv95__end.n_easting, o_lv95__end.n_northing],
                 ],
             };
             let s_url = 'https://api3.geo.admin.ch/rest/services/profile.json'
                 + '?geom=' + encodeURIComponent(JSON.stringify(o_geom))
-                + '&sr=4326'
+                + '&sr=2056'
                 + '&nb_points=' + n_cnt__point
                 + '&distinct_points=true';
 
