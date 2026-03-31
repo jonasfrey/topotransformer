@@ -225,11 +225,12 @@ let o_component__mars = {
                 minZoom: 2,
             });
 
-            // Mars visual base map: celestia shaded texture
+            // Mars visual base map: celestia shaded texture (TMS tile scheme)
             L.tileLayer('https://s3-eu-west-1.amazonaws.com/whereonmars.cartodb.net/celestia_mars-shaded-16k_global/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openplanetary.org">OpenPlanetary</a> / NASA',
                 maxZoom: 9,
                 noWrap: true,
+                tms: true,
             }).addTo(o_map);
 
             self._o_map = o_map;
@@ -269,6 +270,7 @@ let o_component__mars = {
                         opacity: 0.7,
                         maxZoom: 9,
                         noWrap: true,
+                        tms: true,
                     }
                 );
                 o_self._o_layer__elevation.addTo(o_self._o_map);
@@ -371,8 +373,9 @@ let o_component__mars = {
 
         f_image__from_tile: async function (n_x, n_y, n_zoom) {
             let self = this;
-            // MOLA grayscale elevation tiles (proxied through server to bypass CORS)
-            let s_tile_url = 'https://s3-eu-west-1.amazonaws.com/whereonmars.cartodb.net/mola-gray/' + n_zoom + '/' + n_x + '/' + n_y + '.png';
+            // MOLA grayscale elevation tiles (TMS: flip Y, proxied to bypass CORS)
+            let n_y_tms = (1 << n_zoom) - 1 - n_y;
+            let s_tile_url = 'https://s3-eu-west-1.amazonaws.com/whereonmars.cartodb.net/mola-gray/' + n_zoom + '/' + n_x + '/' + n_y_tms + '.png';
             let s_url = '/api/tile?url=' + encodeURIComponent(s_tile_url);
             try {
                 let o_resp = await fetch(s_url);
