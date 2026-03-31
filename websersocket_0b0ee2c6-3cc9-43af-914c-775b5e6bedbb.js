@@ -398,6 +398,29 @@ let f_handler = async function(o_request, o_conninfo) {
         }
     }
 
+    // tile proxy: fetch external map tiles to bypass CORS restrictions
+    if (s_path === '/api/tile') {
+        let s_url_tile = o_url.searchParams.get('url');
+        if (!s_url_tile) {
+            return new Response('Missing url parameter', { status: 400 });
+        }
+        try {
+            let o_resp = await fetch(s_url_tile);
+            if (!o_resp.ok) {
+                return new Response('Upstream tile error', { status: o_resp.status });
+            }
+            let a_n_byte = new Uint8Array(await o_resp.arrayBuffer());
+            return new Response(a_n_byte, {
+                headers: {
+                    'content-type': o_resp.headers.get('content-type') || 'image/png',
+                    'cache-control': 'public, max-age=86400',
+                },
+            });
+        } catch {
+            return new Response('Tile fetch failed', { status: 502 });
+        }
+    }
+
     // serve static file
     if (s_path === '/') {
         s_path = '/index.html';

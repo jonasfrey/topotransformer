@@ -371,8 +371,9 @@ let o_component__mars = {
 
         f_image__from_tile: async function (n_x, n_y, n_zoom) {
             let self = this;
-            // MOLA grayscale elevation tiles
-            let s_url = 'https://s3-eu-west-1.amazonaws.com/whereonmars.cartodb.net/mola-gray/' + n_zoom + '/' + n_x + '/' + n_y + '.png';
+            // MOLA grayscale elevation tiles (proxied through server to bypass CORS)
+            let s_tile_url = 'https://s3-eu-west-1.amazonaws.com/whereonmars.cartodb.net/mola-gray/' + n_zoom + '/' + n_x + '/' + n_y + '.png';
+            let s_url = '/api/tile?url=' + encodeURIComponent(s_tile_url);
             try {
                 let o_resp = await fetch(s_url);
                 if (!o_resp.ok) return self.f_o_fallback_tile();
