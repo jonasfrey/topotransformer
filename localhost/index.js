@@ -29,10 +29,7 @@ import {
 import { o_component__data } from './o_component__data.js';
 import { o_component__filebrowser } from './o_component__filebrowser.js';
 import { o_component__bw_image_to_3d } from './o_component__bw_image_to_3d.js';
-import { o_component__map } from './o_component__map.js';
-import { o_component__main } from './o_component__main.js';
-import { o_component__switzerland } from './o_component__switzerland.js';
-import { o_component__mars } from './o_component__mars.js';
+import { o_component__unified } from './o_component__unified.js';
 import { o_component__landslide } from './o_component__landslide.js';
 import './css_helper.js';
 
@@ -50,7 +47,7 @@ let o_state = reactive({
         {
             path: '/main',
             name: 'main',
-            component: markRaw(o_component__main),
+            component: markRaw(o_component__unified),
         },
         {
             path: '/data',
@@ -66,21 +63,6 @@ let o_state = reactive({
             path: '/bw-image-to-3d',
             name: 'bw-image-to-3d',
             component: markRaw(o_component__bw_image_to_3d),
-        },
-        {
-            path: '/map',
-            name: 'map',
-            component: markRaw(o_component__map),
-        },
-        {
-            path: '/switzerland',
-            name: 'switzerland',
-            component: markRaw(o_component__switzerland),
-        },
-        {
-            path: '/mars',
-            name: 'mars',
-            component: markRaw(o_component__mars),
         },
         {
             path: '/landslide',
@@ -263,7 +245,7 @@ let o_app = createApp({
                         {
                             's_tag': "router-link",
                             'class': "interactable",
-                            'v-for': "o_route in a_o_route",
+                            'v-for': "o_route in a_o_route.filter(function(r){return !r.redirect})",
                             ':to': 'o_route.path',
                             innerText: "{{ o_route.path }}",
                         }

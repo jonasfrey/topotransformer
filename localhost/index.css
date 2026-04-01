@@ -854,6 +854,65 @@ main {
     text-align: center;
 }
 
+/* --- source selector --- */
+.source_selector {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    background: var(--c-bg);
+}
+
+.source_selector__title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--c-text);
+    letter-spacing: 0.02em;
+}
+
+.source_selector__card_row {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 900px;
+    padding: 0 1rem;
+}
+
+.source_selector__card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.5rem 2rem;
+    border-radius: 12px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    min-width: 220px;
+    max-width: 260px;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.source_selector__card:hover {
+    border-color: var(--c-accent);
+    background: var(--c-accent-dim);
+}
+
+.source_selector__card_label {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--c-text);
+}
+
+.source_selector__card_desc {
+    font-size: 0.85rem;
+    color: var(--c-text-dim);
+    line-height: 1.4;
+}
+
 /* --- landslide page --- */
 .landslide__marker {
     background: none;
