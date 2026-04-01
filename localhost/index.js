@@ -31,6 +31,9 @@ import { o_component__filebrowser } from './o_component__filebrowser.js';
 import { o_component__bw_image_to_3d } from './o_component__bw_image_to_3d.js';
 import { o_component__map } from './o_component__map.js';
 import { o_component__main } from './o_component__main.js';
+import { o_component__switzerland } from './o_component__switzerland.js';
+import { o_component__mars } from './o_component__mars.js';
+import { o_component__landslide } from './o_component__landslide.js';
 import './css_helper.js';
 
 import { o_logmsg__run_command } from "./runtimedata.js";
@@ -68,6 +71,21 @@ let o_state = reactive({
             path: '/map',
             name: 'map',
             component: markRaw(o_component__map),
+        },
+        {
+            path: '/switzerland',
+            name: 'switzerland',
+            component: markRaw(o_component__switzerland),
+        },
+        {
+            path: '/mars',
+            name: 'mars',
+            component: markRaw(o_component__mars),
+        },
+        {
+            path: '/landslide',
+            name: 'landslide',
+            component: markRaw(o_component__landslide),
         },
     ],
     a_o_model,

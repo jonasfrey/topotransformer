@@ -1482,7 +1482,8 @@ let o_component__main = {
                     let n_mm_plate_x = n_ratio >= 1 ? o_self.n_mm__max_width : o_self.n_mm__max_width * n_ratio;
                     let n_mm_plate_y = n_ratio >= 1 ? o_self.n_mm__max_width / n_ratio : o_self.n_mm__max_width;
                     let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
-                    a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, n_m__real_width);
+                    let n_mm__chamfer_depth_local = (o_self.n_mm__baseplate + n_mm__displacement) / Math.tan(o_self.n_deg__chamfer * Math.PI / 180);
+                    a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, n_m__real_width, n_mm__chamfer_depth_local);
                 }
                 // compute hole params
                 let o_hole = null;
@@ -1926,7 +1927,8 @@ let o_component__main = {
             return n_best;
         },
 
-        f_a_n__text_mask: function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width) {
+        f_a_n__text_mask: function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width, n_mm__chamfer_depth) {
+            n_mm__chamfer_depth = n_mm__chamfer_depth || 0;
             let el_canvas = document.createElement('canvas');
             el_canvas.width = n_col;
             el_canvas.height = n_row;
@@ -1974,10 +1976,11 @@ let o_component__main = {
                 n_ruler_zone_w = n_margin + n_px__ruler + n_margin;
             }
 
-            let n_mm_plate_y__text = n_mm_plate_y;
-            if (n_ruler_zone_h > 0) {
-                n_mm_plate_y__text = n_mm_plate_y - n_ruler_zone_h / n_px_per_mm_y;
-            }
+            // chamfer dead zone: pixels at the bottom (front edge) that get cut away
+            let n_chamfer_zone_h = n_mm__chamfer_depth * n_px_per_mm_y;
+
+            // available text area excludes ruler zone (top) and chamfer zone (bottom)
+            let n_mm_plate_y__text = n_mm_plate_y - n_ruler_zone_h / n_px_per_mm_y - n_mm__chamfer_depth;
             let n_rad__diagonal_text = Math.atan2(n_mm_plate_y__text, n_mm_plate_x);
             let n_cos_t = Math.cos(n_rad__diagonal_text);
             let n_sin_t = Math.sin(n_rad__diagonal_text);
@@ -1991,7 +1994,8 @@ let o_component__main = {
             let n_font_final = n_font_ref * n_scl_fit;
             let n_font_px = n_font_final * n_px_per_mm;
 
-            let n_row__text_center = (n_row + n_ruler_zone_h) / 2;
+            // center text between ruler zone (top) and chamfer zone (bottom)
+            let n_row__text_center = (n_ruler_zone_h + n_row - n_chamfer_zone_h) / 2;
             o_ctx.clearRect(0, 0, n_col, n_row);
             o_ctx.save();
             o_ctx.translate(n_col / 2, n_row__text_center);
@@ -2009,6 +2013,7 @@ let o_component__main = {
             o_ctx.restore();
 
             if (n_m__real_width > 0 && n_px__ruler > 0) {
+                // draw ruler at top-left corner (back edge) to avoid chamfer cutaway
                 o_ctx.save();
                 o_ctx.scale(-1, 1);
                 let n_bar_x = -(n_col - n_margin);
@@ -2176,26 +2181,6 @@ let o_component__main = {
             let n_mm__displacement = o_self.f_n_mm__displacement(n_mm_width, n_factor);
             o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, 'plane');
 
-            // text mask with correct scale for this width
-            let a_n__text_mask = null;
-            if (o_self.b_text__enabled && o_self.s_text__carve.length > 0 && o_self.n_m_per_pixel__3d > 0) {
-                let n_mm_plate_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
-                let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
-                let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
-                let n_scale = n_m__real_width * 1000 / n_mm_width;
-                let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                let a_s__line = ['TopoPrints'];
-                if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
-                a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
-                a_s__line.push('VE: ' + n_factor.toFixed(1));
-                let s_text = a_s__line.join('\n');
-                a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width);
-            } else if (o_self.b_text__enabled && o_self.s_text__carve.length > 0) {
-                let n_mm_plate_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
-                let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
-                a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, 0);
-            }
-
             // scale baseplate proportionally to width (min 1mm), or use override
             let n_mm__baseplate;
             if (n_mm__baseplate_override != null) {
@@ -2209,6 +2194,29 @@ let o_component__main = {
             // the print bed — the plane clips through both top and bottom,
             // creating a large flat face for printing
             let n_deg__chamfer_variant = 45;
+
+            // chamfer depth for text mask avoidance
+            let n_mm__chamfer_depth_variant = (n_mm__baseplate + n_mm__displacement) / Math.tan(n_deg__chamfer_variant * Math.PI / 180);
+
+            // text mask with correct scale for this width
+            let a_n__text_mask = null;
+            if (o_self.b_text__enabled && o_self.s_text__carve.length > 0 && o_self.n_m_per_pixel__3d > 0) {
+                let n_mm_plate_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
+                let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
+                let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
+                let n_scale = n_m__real_width * 1000 / n_mm_width;
+                let n_scale__nice = o_self.f_n__nice_round(n_scale);
+                let a_s__line = ['TopoPrints'];
+                if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
+                a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
+                a_s__line.push('VE: ' + n_factor.toFixed(1));
+                let s_text = a_s__line.join('\n');
+                a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width, n_mm__chamfer_depth_variant);
+            } else if (o_self.b_text__enabled && o_self.s_text__carve.length > 0) {
+                let n_mm_plate_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
+                let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
+                a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, o_self.s_text__carve, 0, n_mm__chamfer_depth_variant);
+            }
 
             // compute hole params for keychain variant
             let o_hole = null;
