@@ -2604,7 +2604,15 @@ let o_component__unified = {
                 let n_plane_y = n_ratio >= 1 ? 2 / n_ratio : 2;
                 let o_geometry = new THREE.PlaneGeometry(n_plane_x, n_plane_y, n_scl_x - 1, n_scl_y - 1);
 
-                // displace Z by elevation
+                // displace Z by elevation at true scale (VE 1.0)
+                // plane is n_plane_x units wide representing real-world width
+                let n_m__real_width = o_result.n_m_per_pixel * o_result.n_scl_x__selection;
+                let n_m__elevation_range = o_result.n_m__elevation_max - o_result.n_m__elevation_min;
+                // displacement in plane units: elevation range / real width * plane width
+                let n_displacement = (n_m__real_width > 0 && n_m__elevation_range > 0)
+                    ? (n_m__elevation_range / n_m__real_width) * n_plane_x
+                    : 0.1;
+
                 let o_pos = o_geometry.attributes.position;
                 for (let n_idx = 0; n_idx < o_pos.count; n_idx++) {
                     let n_row = Math.floor(n_idx / n_scl_x);
@@ -2612,7 +2620,7 @@ let o_component__unified = {
                     n_row = Math.min(n_row, n_scl_y - 1);
                     n_col = Math.min(n_col, n_scl_x - 1);
                     let n_val = o_data.a_n[n_row * n_scl_x + n_col];
-                    o_pos.setZ(n_idx, ((n_val - 127) / 128) * 0.4);
+                    o_pos.setZ(n_idx, (n_val / 255) * n_displacement);
                 }
                 o_pos.needsUpdate = true;
                 o_geometry.computeVertexNormals();
