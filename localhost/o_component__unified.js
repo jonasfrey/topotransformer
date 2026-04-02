@@ -2,7 +2,6 @@
 
 import { f_o_html_from_o_js } from "./lib/handyhelpers.js";
 import { a_o_source, o_source__by_id } from "./o_config__source.js";
-import { f_generate_and_download_all } from "./stl_pipeline.js";
 
 let o_component__unified = {
     name: 'component-unified',
@@ -1974,8 +1973,8 @@ let o_component__unified = {
                 { n_mm_width: 220, s_suffix: 'large_220mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__large_ve2', s_flag: 'b_show__large_ve2' },
                 { n_mm_width: 160, s_suffix: 'medium_160mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium_ve1', s_flag: 'b_show__medium_ve1' },
                 { n_mm_width: 160, s_suffix: 'medium_160mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium_ve2', s_flag: 'b_show__medium_ve2' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: true, n_ve: 1.0, n_mm__baseplate: 2, n_pxmm: null, s_key: '_o_group__keychain_ve1', s_flag: 'b_show__keychain_ve1' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: true, n_ve: 2.0, n_mm__baseplate: 2, n_pxmm: null, s_key: '_o_group__keychain_ve2', s_flag: 'b_show__keychain_ve2' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: o_self.b_hole__enabled, n_ve: 1.0, n_mm__baseplate: 2, n_pxmm: null, s_key: '_o_group__keychain_ve1', s_flag: 'b_show__keychain_ve1' },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: o_self.b_hole__enabled, n_ve: 2.0, n_mm__baseplate: 2, n_pxmm: null, s_key: '_o_group__keychain_ve2', s_flag: 'b_show__keychain_ve2' },
             ];
 
             o_self.f_dispose_variant_preview();
@@ -2229,8 +2228,8 @@ let o_component__unified = {
                 { n_mm_width: 220, s_suffix: 'large_220mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null },
                 { n_mm_width: 160, s_suffix: 'medium_160mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null },
                 { n_mm_width: 160, s_suffix: 'medium_160mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: true, n_ve: 1.0, n_mm__baseplate: 1.5 },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1.5 },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: o_self.b_hole__enabled, n_ve: 1.0, n_mm__baseplate: 1.5 },
+                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: o_self.b_hole__enabled, n_ve: 2.0, n_mm__baseplate: 1.5 },
             ];
 
             for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
