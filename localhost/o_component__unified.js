@@ -233,6 +233,25 @@ let o_component__unified = {
                     ]},
                 ],
             },
+            // live 3D minimap preview (bottom-left)
+            {
+                s_tag: 'div',
+                class: 'minimap',
+                'v-if': 's_source',
+                a_o: [
+                    {
+                        s_tag: 'canvas',
+                        ref: 'canvas__minimap',
+                        class: 'minimap__canvas',
+                    },
+                    {
+                        s_tag: 'div',
+                        class: 'minimap__status',
+                        'v-if': 'b_minimap__loading',
+                        innerText: 'loading...',
+                    },
+                ],
+            },
             // preview panel (draggable overlay, bottom-right)
             {
                 s_tag: 'div',
@@ -772,6 +791,15 @@ let o_component__unified = {
             _o_resize_observer: null,
             _THREE: null,
 
+            // --- minimap 3d preview ---
+            b_minimap__loading: false,
+            _o_renderer__minimap: null,
+            _o_scene__minimap: null,
+            _o_camera__minimap: null,
+            _o_mesh__minimap: null,
+            _n_id__animation__minimap: null,
+            _n_id__debounce__minimap: null,
+
             // --- drag state ---
             _s_drag_overlay: null,
             _n_drag_off_x: 0,
@@ -871,6 +899,13 @@ let o_component__unified = {
             this._o_map = null;
         }
         if (this._n_id__animation) cancelAnimationFrame(this._n_id__animation);
+        if (this._n_id__animation__minimap) cancelAnimationFrame(this._n_id__animation__minimap);
+        if (this._n_id__debounce__minimap) clearTimeout(this._n_id__debounce__minimap);
+        if (this._o_renderer__minimap) this._o_renderer__minimap.dispose();
+        if (this._o_mesh__minimap) {
+            this._o_mesh__minimap.geometry.dispose();
+            this._o_mesh__minimap.material.dispose();
+        }
         if (this._o_resize_observer) this._o_resize_observer.disconnect();
         if (this._o_renderer) this._o_renderer.dispose();
         if (this._o_control) this._o_control.dispose();
@@ -1010,6 +1045,7 @@ let o_component__unified = {
 
                 o_map.on('zoomend moveend', function () {
                     o_cfg.f_update_zoom_info(self);
+                    self.f_debounce_minimap_update();
                 });
                 o_cfg.f_update_zoom_info(self);
 
@@ -1017,7 +1053,11 @@ let o_component__unified = {
                 self._f_on_resize = function () { self.f_update_viewport_size(); };
                 window.addEventListener('resize', self._f_on_resize);
 
-                setTimeout(function () { o_map.invalidateSize(); self.f_update_viewport_size(); }, 100);
+                setTimeout(function () {
+                    o_map.invalidateSize();
+                    self.f_update_viewport_size();
+                    self.f_debounce_minimap_update();
+                }, 100);
             });
         },
 
@@ -1795,7 +1835,7 @@ let o_component__unified = {
             let THREE = o_self._THREE;
             let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
 
-            n_pxmm = n_pxmm || 6;
+            n_pxmm = n_pxmm || 10;
             let n_max_px = Math.round(n_mm_width * n_pxmm);
             let n_src_x = o_self.n_scl_x__image;
             let n_src_y = o_self.n_scl_y__image;
@@ -2445,6 +2485,170 @@ let o_component__unified = {
             if (this._o_control) {
                 this._o_control.autoRotateSpeed = this.n_speed__rotation;
             }
+        },
+
+        // ===================== MINIMAP 3D PREVIEW =====================
+
+        f_init_minimap: function () {
+            let o_self = this;
+            let THREE = o_self._THREE;
+            if (!THREE) return;
+
+            let el_canvas = o_self.$refs.canvas__minimap;
+            if (!el_canvas) return;
+
+            let n_sz = 200;
+            let o_renderer = new THREE.WebGLRenderer({ canvas: el_canvas, antialias: true, alpha: true });
+            o_renderer.setPixelRatio(window.devicePixelRatio);
+            o_renderer.setSize(n_sz, n_sz);
+
+            let o_scene = new THREE.Scene();
+            o_scene.background = new THREE.Color('#0a0a12');
+
+            // isometric-style orthographic camera
+            let n_frustum = 1.6;
+            let o_camera = new THREE.OrthographicCamera(-n_frustum, n_frustum, n_frustum, -n_frustum, 0.1, 100);
+            // classic isometric angle: rotated 45° around Y, ~35.26° down
+            o_camera.position.set(3, 2.5, 3);
+            o_camera.lookAt(0, 0, 0);
+
+            let o_light__ambient = new THREE.AmbientLight(0xffffff, 0.5);
+            o_scene.add(o_light__ambient);
+            let o_light__dir = new THREE.DirectionalLight(0xffffff, 0.8);
+            o_light__dir.position.set(3, 4, 2);
+            o_scene.add(o_light__dir);
+
+            o_self._o_renderer__minimap = o_renderer;
+            o_self._o_scene__minimap = o_scene;
+            o_self._o_camera__minimap = o_camera;
+
+            let f_animate = function () {
+                o_self._n_id__animation__minimap = requestAnimationFrame(f_animate);
+                o_renderer.render(o_scene, o_camera);
+            };
+            f_animate();
+        },
+
+        f_debounce_minimap_update: function () {
+            let o_self = this;
+            if (o_self._n_id__debounce__minimap) clearTimeout(o_self._n_id__debounce__minimap);
+            o_self._n_id__debounce__minimap = setTimeout(function () {
+                o_self.f_update_minimap();
+            }, 600);
+        },
+
+        f_update_minimap: async function () {
+            let o_self = this;
+            if (!o_self.o_config || !o_self._o_map) return;
+            if (!o_self._THREE) {
+                o_self._THREE = await import('three');
+            }
+            if (!o_self._o_renderer__minimap) {
+                o_self.f_init_minimap();
+                if (!o_self._o_renderer__minimap) return;
+            }
+
+            let THREE = o_self._THREE;
+            o_self.b_minimap__loading = true;
+
+            try {
+                // temporarily override resolution for Switzerland to use coarse grid
+                let n_resolution__saved = o_self.n_resolution;
+                let n_coarse = 64;
+                o_self.n_resolution = n_coarse;
+
+                let o_result = await o_self.o_config.f_s_data_url__from_elevation(o_self);
+
+                // restore resolution
+                o_self.n_resolution = n_resolution__saved;
+
+                // decode heightmap into grayscale array
+                let o_image = new Image();
+                let o_data = await new Promise(function (f_resolve) {
+                    o_image.onload = function () {
+                        let n_w = o_image.width;
+                        let n_h = o_image.height;
+                        let el_c = document.createElement('canvas');
+                        el_c.width = n_w;
+                        el_c.height = n_h;
+                        let o_ctx = el_c.getContext('2d');
+                        o_ctx.drawImage(o_image, 0, 0);
+                        let o_img_data = o_ctx.getImageData(0, 0, n_w, n_h);
+                        let a_n = new Uint8Array(n_w * n_h);
+                        for (let n_i = 0; n_i < a_n.length; n_i++) {
+                            a_n[n_i] = o_img_data.data[n_i * 4];
+                        }
+                        f_resolve({ a_n, n_w, n_h });
+                    };
+                    o_image.src = o_result.s_data_url;
+                });
+
+                // build mesh
+                let n_scl_x = o_data.n_w;
+                let n_scl_y = o_data.n_h;
+                let n_ratio = n_scl_x / n_scl_y;
+                let n_plane_x = n_ratio >= 1 ? 2 : 2 * n_ratio;
+                let n_plane_y = n_ratio >= 1 ? 2 / n_ratio : 2;
+                let o_geometry = new THREE.PlaneGeometry(n_plane_x, n_plane_y, n_scl_x - 1, n_scl_y - 1);
+
+                // displace Z by elevation
+                let o_pos = o_geometry.attributes.position;
+                for (let n_idx = 0; n_idx < o_pos.count; n_idx++) {
+                    let n_row = Math.floor(n_idx / n_scl_x);
+                    let n_col = n_idx % n_scl_x;
+                    n_row = Math.min(n_row, n_scl_y - 1);
+                    n_col = Math.min(n_col, n_scl_x - 1);
+                    let n_val = o_data.a_n[n_row * n_scl_x + n_col];
+                    o_pos.setZ(n_idx, ((n_val - 127) / 128) * 0.4);
+                }
+                o_pos.needsUpdate = true;
+                o_geometry.computeVertexNormals();
+
+                // vertex coloring (blue → green → red)
+                let a_n__color = new Float32Array(o_pos.count * 3);
+                for (let n_idx = 0; n_idx < o_pos.count; n_idx++) {
+                    let n_t = (o_data.a_n[Math.min(n_idx, o_data.a_n.length - 1)]) / 255;
+                    let n_r, n_g, n_b;
+                    if (n_t < 0.5) {
+                        let n_t2 = n_t * 2;
+                        n_r = 0; n_g = n_t2; n_b = 1 - n_t2;
+                    } else {
+                        let n_t2 = (n_t - 0.5) * 2;
+                        n_r = n_t2; n_g = 1 - n_t2; n_b = 0;
+                    }
+                    a_n__color[n_idx * 3] = n_r;
+                    a_n__color[n_idx * 3 + 1] = n_g;
+                    a_n__color[n_idx * 3 + 2] = n_b;
+                }
+                o_geometry.setAttribute('color', new THREE.BufferAttribute(a_n__color, 3));
+
+                let o_material = new THREE.MeshStandardMaterial({
+                    vertexColors: true,
+                    flatShading: true,
+                    side: THREE.DoubleSide,
+                });
+
+                // swap mesh in scene
+                let o_scene = o_self._o_scene__minimap;
+                if (o_self._o_mesh__minimap) {
+                    o_scene.remove(o_self._o_mesh__minimap);
+                    o_self._o_mesh__minimap.geometry.dispose();
+                    o_self._o_mesh__minimap.material.dispose();
+                }
+
+                let o_mesh = new THREE.Mesh(o_geometry, o_material);
+                // rotate plane to lie horizontal then tilt for isometric view
+                o_mesh.rotation.x = -Math.PI / 2;
+                o_scene.add(o_mesh);
+                o_self._o_mesh__minimap = o_mesh;
+
+                o_self.s_status = '';
+            } catch (o_err) {
+                // silently ignore preview errors — user didn't request this
+                console.warn('minimap preview:', o_err.message);
+            }
+
+            o_self.b_minimap__loading = false;
         },
 
         // ===================== OVERLAY DRAG =====================

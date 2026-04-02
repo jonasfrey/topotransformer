@@ -854,6 +854,36 @@ main {
     text-align: center;
 }
 
+/* --- minimap 3d preview --- */
+.minimap {
+    position: fixed;
+    bottom: 3rem;
+    left: 0.75rem;
+    z-index: 600;
+    border-radius: var(--r);
+    overflow: hidden;
+    border: 1px solid var(--c-border);
+    background: #0a0a12;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.minimap__canvas {
+    display: block;
+    width: 200px;
+    height: 200px;
+}
+
+.minimap__status {
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 10px;
+    color: var(--c-text-mute);
+    pointer-events: none;
+}
+
 /* --- source selector --- */
 .source_selector {
     position: fixed;
