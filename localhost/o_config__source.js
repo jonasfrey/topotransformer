@@ -519,19 +519,91 @@ let o_config__switzerland = {
         if (!o_comp._o_map) return;
 
         if (o_comp.b_elevation_overlay) {
-            o_comp._o_layer__elevation = L.tileLayer(
-                'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissalti3d-reliefschattierung/default/current/3857/{z}/{x}/{y}.png',
+            // B&W elevation from Terrarium tiles (same decoder as global)
+            let o_bw_layer = L.GridLayer.extend({
+                createTile: function (o_coords, f_done) {
+                    let el_canvas = document.createElement('canvas');
+                    el_canvas.width = 256;
+                    el_canvas.height = 256;
+                    let n_x = o_coords.x;
+                    let n_y = o_coords.y;
+                    let n_z = o_coords.z;
+                    let n_max_tile = 1 << n_z;
+                    n_x = ((n_x % n_max_tile) + n_max_tile) % n_max_tile;
+                    let s_url = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + n_z + '/' + n_x + '/' + n_y + '.png';
+                    fetch(s_url).then(function (o_resp) {
+                        if (!o_resp.ok) { f_done(null, el_canvas); return; }
+                        return o_resp.blob();
+                    }).then(function (o_blob) {
+                        if (!o_blob) return;
+                        let s_blob_url = URL.createObjectURL(o_blob);
+                        let o_img = new Image();
+                        o_img.onload = function () {
+                            URL.revokeObjectURL(s_blob_url);
+                            let o_ctx = el_canvas.getContext('2d');
+                            o_ctx.drawImage(o_img, 0, 0);
+                            let o_data = o_ctx.getImageData(0, 0, 256, 256);
+                            let a_n = o_data.data;
+                            let n_cnt = 256 * 256;
+                            let a_n__elev = new Float32Array(n_cnt);
+                            let n_min = Infinity;
+                            let n_max = -Infinity;
+                            for (let n_i = 0; n_i < n_cnt; n_i++) {
+                                let n_off = n_i * 4;
+                                let n_elev = (a_n[n_off] * 256 + a_n[n_off + 1] + a_n[n_off + 2] / 256) - 32768;
+                                if (n_elev < 0) n_elev = 0;
+                                a_n__elev[n_i] = n_elev;
+                                if (n_elev < n_min) n_min = n_elev;
+                                if (n_elev > n_max) n_max = n_elev;
+                            }
+                            let n_range = n_max - n_min;
+                            if (n_range < 1) n_range = 1;
+                            for (let n_i = 0; n_i < n_cnt; n_i++) {
+                                let n_val = Math.round(((a_n__elev[n_i] - n_min) / n_range) * 255);
+                                let n_off = n_i * 4;
+                                a_n[n_off] = n_val;
+                                a_n[n_off + 1] = n_val;
+                                a_n[n_off + 2] = n_val;
+                                a_n[n_off + 3] = 255;
+                            }
+                            o_ctx.putImageData(o_data, 0, 0);
+                            f_done(null, el_canvas);
+                        };
+                        o_img.onerror = function () {
+                            URL.revokeObjectURL(s_blob_url);
+                            f_done(null, el_canvas);
+                        };
+                        o_img.src = s_blob_url;
+                    }).catch(function () {
+                        f_done(null, el_canvas);
+                    });
+                    return el_canvas;
+                },
+            });
+            o_comp._o_layer__elevation = new o_bw_layer({
+                maxZoom: 18,
+                bounds: L.latLngBounds(L.latLng(45.7, 5.9), L.latLng(47.9, 10.6)),
+            });
+            o_comp._o_layer__elevation.addTo(o_comp._o_map);
+
+            // faint swisstopo labels on top of the B&W heightmap
+            o_comp._o_layer__elevation_label = L.tileLayer(
+                'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
                 {
-                    opacity: 0.6,
+                    opacity: 0.15,
                     maxZoom: 18,
                     bounds: L.latLngBounds(L.latLng(45.7, 5.9), L.latLng(47.9, 10.6)),
                 }
             );
-            o_comp._o_layer__elevation.addTo(o_comp._o_map);
+            o_comp._o_layer__elevation_label.addTo(o_comp._o_map);
         } else {
             if (o_comp._o_layer__elevation) {
                 o_comp._o_map.removeLayer(o_comp._o_layer__elevation);
                 o_comp._o_layer__elevation = null;
+            }
+            if (o_comp._o_layer__elevation_label) {
+                o_comp._o_map.removeLayer(o_comp._o_layer__elevation_label);
+                o_comp._o_layer__elevation_label = null;
             }
         }
     },
