@@ -2557,7 +2557,7 @@ let o_component__unified = {
                 o_self._THREE = await import('three');
             }
             if (!o_self._o_renderer__minimap) {
-                o_self.f_init_minimap();
+                await o_self.f_init_minimap();
                 if (!o_self._o_renderer__minimap) return;
             }
 
