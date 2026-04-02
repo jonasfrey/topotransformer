@@ -683,7 +683,7 @@ let o_component__unified = {
             s_name__location: '',
             b_elevation_overlay: false,
             _o_layer__elevation: null,
-            n_resolution: 256,
+            n_resolution: 1320,
 
             // --- preview panel ---
             b_preview: false,
@@ -1795,7 +1795,7 @@ let o_component__unified = {
             let THREE = o_self._THREE;
             let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
 
-            n_pxmm = n_pxmm || 10;
+            n_pxmm = n_pxmm || 6;
             let n_max_px = Math.round(n_mm_width * n_pxmm);
             let n_src_x = o_self.n_scl_x__image;
             let n_src_y = o_self.n_scl_y__image;
