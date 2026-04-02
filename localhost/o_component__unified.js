@@ -797,6 +797,7 @@ let o_component__unified = {
             _o_scene__minimap: null,
             _o_camera__minimap: null,
             _o_mesh__minimap: null,
+            _o_control__minimap: null,
             _n_id__animation__minimap: null,
             _n_id__debounce__minimap: null,
 
@@ -901,6 +902,7 @@ let o_component__unified = {
         if (this._n_id__animation) cancelAnimationFrame(this._n_id__animation);
         if (this._n_id__animation__minimap) cancelAnimationFrame(this._n_id__animation__minimap);
         if (this._n_id__debounce__minimap) clearTimeout(this._n_id__debounce__minimap);
+        if (this._o_control__minimap) this._o_control__minimap.dispose();
         if (this._o_renderer__minimap) this._o_renderer__minimap.dispose();
         if (this._o_mesh__minimap) {
             this._o_mesh__minimap.geometry.dispose();
@@ -2489,13 +2491,15 @@ let o_component__unified = {
 
         // ===================== MINIMAP 3D PREVIEW =====================
 
-        f_init_minimap: function () {
+        f_init_minimap: async function () {
             let o_self = this;
             let THREE = o_self._THREE;
             if (!THREE) return;
 
             let el_canvas = o_self.$refs.canvas__minimap;
             if (!el_canvas) return;
+
+            let { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
 
             let n_sz = 200;
             let o_renderer = new THREE.WebGLRenderer({ canvas: el_canvas, antialias: true, alpha: true });
@@ -2508,22 +2512,31 @@ let o_component__unified = {
             // isometric-style orthographic camera
             let n_frustum = 1.6;
             let o_camera = new THREE.OrthographicCamera(-n_frustum, n_frustum, n_frustum, -n_frustum, 0.1, 100);
-            // classic isometric angle: rotated 45° around Y, ~35.26° down
             o_camera.position.set(3, 2.5, 3);
             o_camera.lookAt(0, 0, 0);
 
-            let o_light__ambient = new THREE.AmbientLight(0xffffff, 0.5);
+            // orbit controls for rotating/zooming the minimap
+            let o_control = new OrbitControls(o_camera, o_renderer.domElement);
+            o_control.enableDamping = true;
+            o_control.dampingFactor = 0.1;
+            o_control.enablePan = false;
+            o_control.minZoom = 0.5;
+            o_control.maxZoom = 3;
+
+            let o_light__ambient = new THREE.AmbientLight(0xffffff, 1.0);
             o_scene.add(o_light__ambient);
-            let o_light__dir = new THREE.DirectionalLight(0xffffff, 0.8);
+            let o_light__dir = new THREE.DirectionalLight(0xffffff, 1.5);
             o_light__dir.position.set(3, 4, 2);
             o_scene.add(o_light__dir);
 
             o_self._o_renderer__minimap = o_renderer;
             o_self._o_scene__minimap = o_scene;
             o_self._o_camera__minimap = o_camera;
+            o_self._o_control__minimap = o_control;
 
             let f_animate = function () {
                 o_self._n_id__animation__minimap = requestAnimationFrame(f_animate);
+                o_control.update();
                 o_renderer.render(o_scene, o_camera);
             };
             f_animate();
