@@ -339,8 +339,8 @@ let o_component__main = {
                                 class: 'bw3d__section',
                                 'v-if': "s_type__geometry === 'plane'",
                                 a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Min total thickness (mm): {{ n_mm__min_total.toFixed(1) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__min_total', min: '5', max: '30', step: '0.5', class: 'bw3d__range' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Min side face (mm): {{ n_mm__min_side.toFixed(1) }}' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__min_side', min: '5', max: '30', step: '0.5', class: 'bw3d__range' },
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Baseplate (mm): {{ n_mm__baseplate.toFixed(1) }}' },
                                 ],
                             },
@@ -625,7 +625,7 @@ let o_component__main = {
             n_max_resolution: 5000,
             n_factor: 1.0,
             n_mm__max_width: 240,
-            n_mm__min_total: 15,
+            n_mm__min_side: 15,
             n_deg__chamfer: 60,
             b_text__enabled: true,
             s_text__carve: 'TopoPrints',
@@ -743,7 +743,7 @@ let o_component__main = {
         },
         n_mm__baseplate: function () {
             let n_mm__displacement = this.f_n_mm__displacement(this.n_mm__max_width, this.n_factor);
-            return this.f_n_mm__baseplate(n_mm__displacement, this.n_mm__min_total);
+            return this.f_n_mm__baseplate(n_mm__displacement, this.n_mm__min_side);
         },
     },
 
@@ -1904,8 +1904,9 @@ let o_component__main = {
             return n_factor * 10 * (n_mm_width / o_self.n_mm__max_width);
         },
 
-        f_n_mm__baseplate: function (n_mm__displacement, n_mm__min_total) {
-            let n_mm__baseplate = Math.max(0, n_mm__min_total - n_mm__displacement);
+        f_n_mm__baseplate: function (n_mm__displacement, n_mm__min_side) {
+            let n_mm__side_from_terrain = 2 * n_mm__displacement;
+            let n_mm__baseplate = Math.max(0, n_mm__min_side - n_mm__side_from_terrain);
             n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
             return n_mm__baseplate;
         },
@@ -2196,7 +2197,7 @@ let o_component__main = {
             if (n_mm__baseplate_override != null) {
                 n_mm__baseplate = n_mm__baseplate_override;
             } else {
-                n_mm__baseplate = o_self.f_n_mm__baseplate(n_mm__displacement, o_self.n_mm__min_total);
+                n_mm__baseplate = o_self.f_n_mm__baseplate(n_mm__displacement, o_self.n_mm__min_side);
             }
 
             // 45° chamfer: cuts one edge so the piece can stand at 45° on
@@ -2394,7 +2395,7 @@ let o_component__main = {
             if (n_mm__baseplate_override != null) {
                 n_mm__baseplate = n_mm__baseplate_override;
             } else {
-                n_mm__baseplate = o_self.f_n_mm__baseplate(n_mm__displacement, o_self.n_mm__min_total);
+                n_mm__baseplate = o_self.f_n_mm__baseplate(n_mm__displacement, o_self.n_mm__min_side);
             }
 
             let n_scl_z = n_mm__displacement / 100;
