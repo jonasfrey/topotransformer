@@ -422,8 +422,9 @@ let o_component__unified = {
                                 class: 'bw3d__section',
                                 'v-if': "s_type__geometry === 'plane'",
                                 a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Baseplate thickness (mm): {{ n_mm__baseplate.toFixed(1) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__baseplate', min: '0', max: '20', step: '0.5', class: 'bw3d__range' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Min total thickness (mm): {{ n_mm__min_total.toFixed(1) }}' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__min_total', min: '5', max: '30', step: '0.5', class: 'bw3d__range' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Baseplate (mm): {{ n_mm__baseplate.toFixed(1) }}' },
                                 ],
                             },
                             // chamfer toggle + angle
@@ -730,7 +731,7 @@ let o_component__unified = {
             n_max_resolution: 5000,
             n_factor: 1.0,
             n_mm__max_width: 240,
-            n_mm__baseplate: 5,
+            n_mm__min_total: 15,
             b_chamfer__enabled: false,
             n_deg__chamfer: 45,
             b_text__enabled: true,
@@ -863,6 +864,10 @@ let o_component__unified = {
         },
         n_deg__chamfer_effective: function () {
             return this.b_chamfer__enabled ? this.n_deg__chamfer : 0;
+        },
+        n_mm__baseplate: function () {
+            let n_mm__displacement = this.f_n_mm__displacement(this.n_mm__max_width, this.n_factor);
+            return this.f_n_mm__baseplate(n_mm__displacement, this.n_mm__min_total);
         },
     },
 
@@ -1007,9 +1012,9 @@ let o_component__unified = {
                     center: [o_cfg.n_lat__center, o_cfg.n_lon__center],
                     zoom: o_cfg.n_zoom__default,
                     zoomControl: true,
-                    zoomSnap: 0.25,
-                    zoomDelta: 0.25,
-                    wheelPxPerZoomLevel: 120,
+                    zoomSnap: 0,
+                    zoomDelta: 0.1,
+                    wheelPxPerZoomLevel: 240,
                     minZoom: o_cfg.n_zoom__min,
                     maxZoom: o_cfg.n_zoom__max,
                 };
@@ -1624,6 +1629,12 @@ let o_component__unified = {
             return n_factor * 10 * (n_mm_width / o_self.n_mm__max_width);
         },
 
+        f_n_mm__baseplate: function (n_mm__displacement, n_mm__min_total) {
+            let n_mm__baseplate = Math.max(0, n_mm__min_total - n_mm__displacement);
+            n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
+            return n_mm__baseplate;
+        },
+
         f_n__nice_round: function (n_val) {
             if (n_val <= 0) return 0;
             let n_magnitude = Math.pow(10, Math.floor(Math.log10(n_val)));
@@ -1897,8 +1908,7 @@ let o_component__unified = {
             if (n_mm__baseplate_override != null) {
                 n_mm__baseplate = n_mm__baseplate_override;
             } else {
-                n_mm__baseplate = Math.max(1, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
-                n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
+                n_mm__baseplate = o_self.f_n_mm__baseplate(n_mm__displacement, o_self.n_mm__min_total);
             }
 
             // use effective chamfer (0 if disabled)
@@ -2071,14 +2081,6 @@ let o_component__unified = {
             let n_mm_plate_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
             let n_mm_plate_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
 
-            let n_mm__baseplate;
-            if (n_mm__baseplate_override != null) {
-                n_mm__baseplate = n_mm__baseplate_override;
-            } else {
-                n_mm__baseplate = Math.max(1, o_self.n_mm__baseplate * (n_mm_width / o_self.n_mm__max_width));
-                n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
-            }
-
             let n_mm__displacement = 0;
             let n_scale = 0;
             if (o_self.n_m_per_pixel__3d > 0 && o_self.n_scl_x__map_selection > 0) {
@@ -2088,6 +2090,13 @@ let o_component__unified = {
                 n_mm__displacement = (n_m__elevation_range * 1000 / n_scale) * n_factor;
             } else {
                 n_mm__displacement = n_factor * 10 * (n_mm_width / o_self.n_mm__max_width);
+            }
+
+            let n_mm__baseplate;
+            if (n_mm__baseplate_override != null) {
+                n_mm__baseplate = n_mm__baseplate_override;
+            } else {
+                n_mm__baseplate = o_self.f_n_mm__baseplate(n_mm__displacement, o_self.n_mm__min_total);
             }
 
             let n_scl_z = n_mm__displacement / 100;
