@@ -176,8 +176,9 @@ let o_component__bw_image_to_3d = {
                                 class: 'bw3d__section',
                                 'v-if': "s_type__geometry === 'plane'",
                                 a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Baseplate thickness (mm): {{ n_mm__baseplate.toFixed(1) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__baseplate', min: '0', max: '20', step: '0.5', class: 'bw3d__range' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Min total thickness (mm): {{ n_mm__min_total.toFixed(1) }}' },
+                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__min_total', min: '5', max: '30', step: '0.5', class: 'bw3d__range' },
+                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Baseplate (mm): {{ n_mm__baseplate.toFixed(1) }}' },
                                 ],
                             },
                             {
@@ -409,7 +410,7 @@ let o_component__bw_image_to_3d = {
             n_max_resolution: 1200,
             n_factor: 0.5,
             n_mm__max_width: 240,
-            n_mm__baseplate: 5,
+            n_mm__min_total: 15,
             n_deg__chamfer: 60,
             // text carving
             b_text__enabled: true,
@@ -451,6 +452,13 @@ let o_component__bw_image_to_3d = {
             _n_drag_off_x: 0,
             _n_drag_off_y: 0,
         };
+    },
+    computed: {
+        n_mm__baseplate: function () {
+            let n_mm__displacement = this.n_factor * 10;
+            let n_mm__baseplate = Math.max(0, this.n_mm__min_total - n_mm__displacement);
+            return Math.round(n_mm__baseplate * 2) / 2;
+        },
     },
     methods: {
         f_init_three: async function () {
