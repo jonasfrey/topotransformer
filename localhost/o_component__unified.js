@@ -276,9 +276,11 @@ let o_component__unified = {
                                 class: 'sidebar__section',
                                 a_o: [
                                     { s_tag: 'label', class: 'sidebar__heading', innerText: '3D Preview' },
-                                    // minimap canvas (coarse live preview)
+                                    // minimap canvas (coarse live preview, hidden when export preview is active)
                                     {
                                         class: 'sidebar__minimap',
+                                        'v-show': '!s_data_url__heightmap',
+                                        ref: 'minimap_wrapper',
                                         a_o: [
                                             { s_tag: 'canvas', ref: 'canvas__minimap', class: 'sidebar__minimap_canvas' },
                                             { s_tag: 'div', class: 'minimap__status', 'v-if': 'b_minimap__loading', innerText: 'loading...' },
@@ -340,6 +342,12 @@ let o_component__unified = {
                                         class: 'bw3d__row',
                                         style: 'flex-wrap: wrap; margin-top: 4px',
                                         a_o: [
+                                            {
+                                                s_tag: 'div',
+                                                ':class': "'sidebar__btn_sm interactable' + (b_exporting ? ' disabled' : '')",
+                                                'v-on:click': 'f_export_and_preview',
+                                                innerText: 'Preview 3D',
+                                            },
                                             {
                                                 s_tag: 'div',
                                                 ':class': "'sidebar__btn_sm interactable' + (b_exporting ? ' disabled' : '')",
@@ -839,6 +847,7 @@ let o_component__unified = {
         if (this._n_id__animation) cancelAnimationFrame(this._n_id__animation);
         if (this._n_id__animation__minimap) cancelAnimationFrame(this._n_id__animation__minimap);
         if (this._n_id__debounce__minimap) clearTimeout(this._n_id__debounce__minimap);
+        if (this._o_resize_observer__minimap) this._o_resize_observer__minimap.disconnect();
         if (this._o_control__minimap) this._o_control__minimap.dispose();
         if (this._o_renderer__minimap) this._o_renderer__minimap.dispose();
         if (this._o_mesh__minimap) {
@@ -902,6 +911,10 @@ let o_component__unified = {
             self.s_status = '';
             self.s_search = '';
             self.s_preset = '';
+            self.s_data_url__heightmap = '';
+            self.s_resolution = '';
+            self.n_m_per_pixel__3d = 0;
+            self.b_variant__generated = false;
 
             self.s_source = s_new;
             self.o_config = o_source__by_id[s_new];
@@ -1101,6 +1114,13 @@ let o_component__unified = {
             }
 
             this.b_exporting = false;
+        },
+
+        f_export_and_preview: async function () {
+            await this.f_export();
+            if (this.a_n__image_data) {
+                this.f_generate_mesh();
+            }
         },
 
         f_download_png: function () {
@@ -2473,6 +2493,16 @@ let o_component__unified = {
             o_self._o_scene__minimap = o_scene;
             o_self._o_camera__minimap = o_camera;
             o_self._o_control__minimap = o_control;
+
+            // resize minimap when sidebar width changes
+            let o_resize_observer__minimap = new ResizeObserver(function () {
+                let n_w = el_canvas.parentElement.clientWidth;
+                if (n_w > 0) {
+                    o_renderer.setSize(n_w, n_w);
+                }
+            });
+            o_resize_observer__minimap.observe(el_canvas.parentElement);
+            o_self._o_resize_observer__minimap = o_resize_observer__minimap;
 
             let f_animate = function () {
                 o_self._n_id__animation__minimap = requestAnimationFrame(f_animate);
