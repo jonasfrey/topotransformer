@@ -39,647 +39,514 @@ let o_component__unified = {
                 ],
             },
             // ===================== MAP VIEW (step 2) =====================
-            // leaflet map container (full screen)
             {
                 s_tag: 'div',
-                class: 'map__container',
-                ref: 'map_container',
-                'v-if': 's_source',
-            },
-            // map toolbar (top-right, combined map + 3d controls)
-            {
-                s_tag: 'div',
-                class: 'map__toolbar',
+                class: 'map__wrapper',
                 'v-if': 's_source',
                 a_o: [
-                    // source switcher (compact)
+                    // leaflet map container
                     {
-                        s_tag: 'select',
-                        'v-model': 's_source_switch',
-                        'v-on:change': 'f_switch_source',
-                        class: 'map__select_ratio',
+                        s_tag: 'div',
+                        class: 'map__container',
+                        ref: 'map_container',
+                    },
+                    // zoom info bar (bottom center of map)
+                    {
+                        s_tag: 'div',
+                        class: 'map__zoom_info',
                         a_o: [
-                            { s_tag: 'option', value: 'global', innerText: 'Global' },
-                            { s_tag: 'option', value: 'switzerland', innerText: 'Switzerland' },
-                            { s_tag: 'option', value: 'mars', innerText: 'Mars' },
+                            { s_tag: 'span', innerText: '{{ s_zoom_label }}' },
+                            { s_tag: 'span', ':class': "'map__zoom_quality ' + s_quality_class", innerText: '{{ s_quality }}' },
                         ],
                     },
+                    // aspect ratio selection overlay
                     {
                         s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn interactable' + (b_exporting ? ' disabled' : '')",
-                        'v-on:click': 'f_export',
-                        innerText: "{{ b_exporting ? 'Exporting...' : 'Export' }}",
-                    },
-                    {
-                        s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn interactable' + (b_elevation_overlay ? ' active' : '')",
-                        'v-on:click': 'f_toggle_elevation_overlay',
-                        innerText: 'Heightmap',
-                    },
-                    // export PNG (mars only)
-                    {
-                        s_tag: 'div',
-                        'v-if': 'o_config && o_config.b_has_export_png',
-                        ':class': "'bw3d__toolbar_btn interactable' + (b_exporting ? ' disabled' : '')",
-                        'v-on:click': 'f_export_png',
-                        innerText: 'Export PNG',
-                    },
-                    // search (global + switzerland)
-                    {
-                        s_tag: 'div',
-                        class: 'map__search',
-                        'v-if': 'o_config && o_config.b_has_search',
+                        class: 'map__selection_overlay',
                         a_o: [
-                            {
-                                s_tag: 'input',
-                                type: 'text',
-                                'v-model': 's_search',
-                                ':placeholder': "s_source === 'switzerland' ? 'Search Swiss location...' : 'Search location...'",
-                                class: 'map__search_input',
-                                'v-on:keydown.enter': 'f_search',
-                            },
-                            {
-                                s_tag: 'div',
-                                ':class': "'bw3d__toolbar_btn interactable' + (b_searching ? ' disabled' : '')",
-                                'v-on:click': 'f_search',
-                                innerText: '🔍',
-                            },
+                            { s_tag: 'div', class: 'map__selection_dim map__selection_dim--top', ':style': 'o_style__dim_top' },
+                            { s_tag: 'div', class: 'map__selection_dim map__selection_dim--bottom', ':style': 'o_style__dim_bottom' },
+                            { s_tag: 'div', class: 'map__selection_dim map__selection_dim--left', ':style': 'o_style__dim_left' },
+                            { s_tag: 'div', class: 'map__selection_dim map__selection_dim--right', ':style': 'o_style__dim_right' },
+                            { s_tag: 'div', class: 'map__selection_box', ':style': 'o_style__selection_box', a_o: [
+                                { s_tag: 'div', class: 'map__selection_corner map__selection_corner--tl' },
+                                { s_tag: 'div', class: 'map__selection_corner map__selection_corner--tr' },
+                                { s_tag: 'div', class: 'map__selection_corner map__selection_corner--bl' },
+                                { s_tag: 'div', class: 'map__selection_corner map__selection_corner--br' },
+                                // tiling grid lines
+                                { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_col > 1', class: 'map__tile_grid_col', 'v-for': 'n in (n_tile_col - 1)', ':style': '{ left: (n / n_tile_col * 100) + "%", top: "0", bottom: "0" }' },
+                                { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_row > 1', class: 'map__tile_grid_row', 'v-for': 'n in (n_tile_row - 1)', ':style': '{ top: (n / n_tile_row * 100) + "%", left: "0", right: "0" }' },
+                            ]},
                         ],
                     },
-                    {
-                        s_tag: 'select',
-                        'v-model': 's_ratio',
-                        class: 'map__select_ratio',
-                        a_o: [
-                            { s_tag: 'option', value: 'free', innerText: 'Free' },
-                            { s_tag: 'option', value: '1:1', innerText: '1:1' },
-                            { s_tag: 'option', value: '4:3', innerText: '4:3' },
-                            { s_tag: 'option', value: '3:2', innerText: '3:2' },
-                            { s_tag: 'option', value: '16:9', innerText: '16:9' },
-                            { s_tag: 'option', value: '21:9', innerText: '21:9' },
-                            { s_tag: 'option', value: '3:4', innerText: '3:4 (portrait)' },
-                            { s_tag: 'option', value: '2:3', innerText: '2:3 (portrait)' },
-                            { s_tag: 'option', value: '9:16', innerText: '9:16 (portrait)' },
-                        ],
-                    },
-                    {
-                        s_tag: 'select',
-                        'v-model': 's_preset',
-                        'v-on:change': 'f_go_preset',
-                        class: 'map__select_ratio',
-                        'v-if': 'o_config',
-                        a_o: [
-                            {
-                                s_tag: 'option',
-                                'v-for': 'o_p in o_config.a_o_preset',
-                                ':value': 'o_p.s_value',
-                                ':disabled': 'o_p.b_disabled',
-                                innerText: '{{ o_p.s_label }}',
-                            },
-                        ],
-                    },
-                    // resolution input (switzerland only)
-                    {
-                        s_tag: 'label',
-                        class: 'map__resolution_label',
-                        'v-if': 'o_config && o_config.b_has_resolution_input',
-                        innerText: 'Resolution: ',
-                        a_o: [
-                            {
-                                s_tag: 'input',
-                                type: 'number',
-                                'v-model.number': 'n_resolution',
-                                min: '32',
-                                max: '1024',
-                                step: '32',
-                                class: 'map__resolution_input',
-                            },
-                            { s_tag: 'span', innerText: 'px' },
-                        ],
-                    },
-                    // separator between map and 3d controls
-                    { s_tag: 'div', class: 'main__toolbar_separator' },
+                    // status message overlay (bottom-right of map)
                     {
                         s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn bw3d__toolbar_btn--primary interactable'",
-                        'v-on:click': 'f_generate_and_download',
-                        innerText: 'Generate & Download',
-                    },
-                    { s_tag: 'div', class: 'main__toolbar_separator' },
-                    {
-                        s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn interactable' + (b_preview ? ' active' : '')",
-                        'v-on:click': 'b_preview = !b_preview',
-                        innerText: 'Preview',
-                    },
-                    {
-                        s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn interactable' + (b_overlay__3d_config ? ' active' : '')",
-                        'v-on:click': 'b_overlay__3d_config = !b_overlay__3d_config',
-                        innerText: '3D Config',
-                    },
-                    {
-                        s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn interactable' + (b_overlay__scene ? ' active' : '')",
-                        'v-on:click': 'b_overlay__scene = !b_overlay__scene',
-                        innerText: 'Scene',
-                    },
-                    {
-                        s_tag: 'div',
-                        ':class': "'bw3d__toolbar_btn interactable' + (b_overlay__tiling ? ' active' : '')",
-                        'v-on:click': 'b_overlay__tiling = !b_overlay__tiling',
-                        innerText: 'Tiling',
-                    },
-                    {
-                        s_tag: 'div',
-                        class: 'map__info',
+                        class: 'map__status',
                         'v-if': 's_status',
                         innerText: '{{ s_status }}',
                     },
                 ],
             },
-            // zoom info bar (bottom center)
+            // ===================== SIDEBAR =====================
             {
                 s_tag: 'div',
-                class: 'map__zoom_info',
-                'v-if': 's_source',
-                a_o: [
-                    {
-                        s_tag: 'span',
-                        innerText: '{{ s_zoom_label }}',
-                    },
-                    {
-                        s_tag: 'span',
-                        ':class': "'map__zoom_quality ' + s_quality_class",
-                        innerText: '{{ s_quality }}',
-                    },
-                ],
-            },
-            // aspect ratio selection overlay
-            {
-                s_tag: 'div',
-                class: 'map__selection_overlay',
-                'v-if': 's_source',
-                a_o: [
-                    { s_tag: 'div', class: 'map__selection_dim map__selection_dim--top', ':style': 'o_style__dim_top' },
-                    { s_tag: 'div', class: 'map__selection_dim map__selection_dim--bottom', ':style': 'o_style__dim_bottom' },
-                    { s_tag: 'div', class: 'map__selection_dim map__selection_dim--left', ':style': 'o_style__dim_left' },
-                    { s_tag: 'div', class: 'map__selection_dim map__selection_dim--right', ':style': 'o_style__dim_right' },
-                    { s_tag: 'div', class: 'map__selection_box', ':style': 'o_style__selection_box', a_o: [
-                        { s_tag: 'div', class: 'map__selection_corner map__selection_corner--tl' },
-                        { s_tag: 'div', class: 'map__selection_corner map__selection_corner--tr' },
-                        { s_tag: 'div', class: 'map__selection_corner map__selection_corner--bl' },
-                        { s_tag: 'div', class: 'map__selection_corner map__selection_corner--br' },
-                        // tiling grid lines
-                        { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_col > 1', class: 'map__tile_grid_col', 'v-for': 'n in (n_tile_col - 1)', ':style': '{ left: (n / n_tile_col * 100) + "%", top: "0", bottom: "0" }' },
-                        { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_row > 1', class: 'map__tile_grid_row', 'v-for': 'n in (n_tile_row - 1)', ':style': '{ top: (n / n_tile_row * 100) + "%", left: "0", right: "0" }' },
-                    ]},
-                ],
-            },
-            // live 3D minimap preview (bottom-left)
-            {
-                s_tag: 'div',
-                class: 'minimap',
-                'v-if': 's_source',
-                a_o: [
-                    {
-                        s_tag: 'canvas',
-                        ref: 'canvas__minimap',
-                        class: 'minimap__canvas',
-                    },
-                    {
-                        s_tag: 'div',
-                        class: 'minimap__status',
-                        'v-if': 'b_minimap__loading',
-                        innerText: 'loading...',
-                    },
-                ],
-            },
-            // preview panel (draggable overlay, bottom-right)
-            {
-                s_tag: 'div',
-                ':class': "'bw3d__overlay main__preview' + (b_preview ? ' visible' : '')",
-                ':style': 'o_style__overlay__preview',
-                ref: 'overlay__preview',
+                class: 'sidebar',
                 'v-if': 's_source',
                 a_o: [
                     {
                         s_tag: 'div',
-                        class: 'bw3d__overlay_header',
-                        'v-on:pointerdown': "f_drag_start($event, 'preview')",
+                        class: 'sidebar__scroll',
                         a_o: [
-                            { s_tag: 'span', class: 'bw3d__overlay_title', innerText: 'Preview' },
-                            { s_tag: 'span', class: 'bw3d__overlay_close interactable', 'v-on:click': 'b_preview = false', innerHTML: '&times;' },
-                        ],
-                    },
-                    {
-                        s_tag: 'div',
-                        class: 'bw3d__overlay_body',
-                        a_o: [
-                            // heightmap preview
+                            // --- SECTION: Search ---
                             {
-                                class: 'bw3d__section',
+                                class: 'sidebar__section',
+                                'v-if': 'o_config && o_config.b_has_search',
                                 a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Heightmap' },
+                                    { s_tag: 'label', class: 'sidebar__heading', innerText: 'Search' },
                                     {
-                                        s_tag: 'div',
+                                        class: 'sidebar__search',
+                                        a_o: [
+                                            {
+                                                s_tag: 'input',
+                                                type: 'text',
+                                                'v-model': 's_search',
+                                                ':placeholder': "s_source === 'switzerland' ? 'Search Swiss location...' : 'Search location...'",
+                                                class: 'sidebar__input sidebar__search_input',
+                                                'v-on:keydown.enter': 'f_search',
+                                            },
+                                            {
+                                                s_tag: 'div',
+                                                ':class': "'sidebar__btn_icon interactable' + (b_searching ? ' disabled' : '')",
+                                                'v-on:click': 'f_search',
+                                                innerText: '🔍',
+                                            },
+                                        ],
+                                    },
+                                    // preset locations dropdown
+                                    {
+                                        s_tag: 'select',
+                                        'v-model': 's_preset',
+                                        'v-on:change': 'f_go_preset',
+                                        class: 'sidebar__select',
+                                        'v-if': 'o_config',
+                                        a_o: [
+                                            {
+                                                s_tag: 'option',
+                                                'v-for': 'o_p in o_config.a_o_preset',
+                                                ':value': 'o_p.s_value',
+                                                ':disabled': 'o_p.b_disabled',
+                                                innerText: '{{ o_p.s_label }}',
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                            // --- SECTION: Terrain Source ---
+                            {
+                                class: 'sidebar__section',
+                                a_o: [
+                                    { s_tag: 'label', class: 'sidebar__heading', innerText: 'Terrain Source' },
+                                    {
+                                        s_tag: 'select',
+                                        'v-model': 's_source_switch',
+                                        'v-on:change': 'f_switch_source',
+                                        class: 'sidebar__select',
+                                        a_o: [
+                                            { s_tag: 'option', value: 'global', innerText: 'Global' },
+                                            { s_tag: 'option', value: 'switzerland', innerText: 'Switzerland' },
+                                            { s_tag: 'option', value: 'mars', innerText: 'Mars' },
+                                        ],
+                                    },
+                                    {
+                                        class: 'bw3d__row',
+                                        style: 'margin-top: 4px',
+                                        a_o: [
+                                            {
+                                                s_tag: 'div',
+                                                ':class': "'sidebar__btn_sm interactable' + (b_elevation_overlay ? ' active' : '')",
+                                                'v-on:click': 'f_toggle_elevation_overlay',
+                                                innerText: 'Heightmap overlay',
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                            // --- SECTION: Region Settings ---
+                            {
+                                class: 'sidebar__section',
+                                a_o: [
+                                    { s_tag: 'label', class: 'sidebar__heading', innerText: 'Region' },
+                                    {
+                                        class: 'bw3d__section',
+                                        a_o: [
+                                            { s_tag: 'label', class: 'bw3d__label', innerText: 'Aspect ratio' },
+                                            {
+                                                s_tag: 'select',
+                                                'v-model': 's_ratio',
+                                                class: 'sidebar__select',
+                                                a_o: [
+                                                    { s_tag: 'option', value: 'free', innerText: 'Free' },
+                                                    { s_tag: 'option', value: '1:1', innerText: '1:1' },
+                                                    { s_tag: 'option', value: '4:3', innerText: '4:3' },
+                                                    { s_tag: 'option', value: '3:2', innerText: '3:2' },
+                                                    { s_tag: 'option', value: '16:9', innerText: '16:9' },
+                                                    { s_tag: 'option', value: '21:9', innerText: '21:9' },
+                                                    { s_tag: 'option', value: '3:4', innerText: '3:4 (portrait)' },
+                                                    { s_tag: 'option', value: '2:3', innerText: '2:3 (portrait)' },
+                                                    { s_tag: 'option', value: '9:16', innerText: '9:16 (portrait)' },
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        class: 'bw3d__section',
+                                        a_o: [
+                                            { s_tag: 'label', class: 'bw3d__label', innerText: 'Side length (mm)' },
+                                            { s_tag: 'input', type: 'number', 'v-model.number': 'n_mm__max_width', min: '1', step: '1', class: 'sidebar__input' },
+                                        ],
+                                    },
+                                    {
+                                        class: 'bw3d__section',
+                                        a_o: [
+                                            { s_tag: 'label', class: 'bw3d__label', innerText: 'Tiling (N x N)' },
+                                            {
+                                                class: 'bw3d__row',
+                                                a_o: [
+                                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_tile_col', min: '1', max: '20', step: '1', class: 'sidebar__input', style: 'width: 60px' },
+                                                    { s_tag: 'span', class: 'bw3d__label', innerText: 'x' },
+                                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_tile_row', min: '1', max: '20', step: '1', class: 'sidebar__input', style: 'width: 60px' },
+                                                    { s_tag: 'span', class: 'bw3d__info', innerText: '= {{ n_tile_col * n_tile_row }} tile(s)' },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__row',
+                                                'v-if': 'n_tile_col > 1 || n_tile_row > 1',
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', a_o: [
+                                                        { s_tag: 'input', type: 'checkbox', 'v-model': 'b_tiling__preview', style: 'margin-right: 6px' },
+                                                        { s_tag: 'span', innerText: 'Show grid on map' },
+                                                    ]},
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                    // resolution input (switzerland only)
+                                    {
+                                        class: 'bw3d__section',
+                                        'v-if': 'o_config && o_config.b_has_resolution_input',
+                                        a_o: [
+                                            { s_tag: 'label', class: 'bw3d__label', innerText: 'Tile resolution (px)' },
+                                            { s_tag: 'input', type: 'number', 'v-model.number': 'n_resolution', min: '32', max: '1024', step: '32', class: 'sidebar__input' },
+                                        ],
+                                    },
+                                    // scale info
+                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'n_m_per_pixel__3d > 0', innerText: 'Scale 1:{{ f_s__format_number(f_n__nice_round(n_m_per_pixel__3d * n_scl_x__map_selection * 1000 / n_mm__max_width)) }} — elevation {{ Math.round(n_m__elevation_min) }}m – {{ Math.round(n_m__elevation_max) }}m' },
+                                ],
+                            },
+                            // --- SECTION: 3D Preview ---
+                            {
+                                class: 'sidebar__section',
+                                a_o: [
+                                    { s_tag: 'label', class: 'sidebar__heading', innerText: '3D Preview' },
+                                    // minimap canvas (coarse live preview)
+                                    {
+                                        class: 'sidebar__minimap',
+                                        a_o: [
+                                            { s_tag: 'canvas', ref: 'canvas__minimap', class: 'sidebar__minimap_canvas' },
+                                            { s_tag: 'div', class: 'minimap__status', 'v-if': 'b_minimap__loading', innerText: 'loading...' },
+                                        ],
+                                    },
+                                    // full 3D preview (after export)
+                                    {
+                                        class: 'main__3d_container',
+                                        ref: 'container__three',
+                                        'v-if': 's_data_url__heightmap',
+                                        a_o: [
+                                            { s_tag: 'canvas', ref: 'canvas__three' },
+                                        ],
+                                    },
+                                    // heightmap thumbnail
+                                    {
                                         class: 'main__heightmap_container',
                                         'v-if': 's_data_url__heightmap',
                                         a_o: [
                                             { s_tag: 'img', class: 'main__heightmap_img', ':src': 's_data_url__heightmap' },
                                         ],
                                     },
-                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': '!s_data_url__heightmap', innerText: 'Click Export to generate heightmap' },
+                                    // variant preview toggles
+                                    {
+                                        class: 'bw3d__section',
+                                        'v-if': 'b_variant__generated',
+                                        a_o: [
+                                            { s_tag: 'label', class: 'bw3d__label', innerText: 'Show variant' },
+                                            {
+                                                class: 'bw3d__row',
+                                                style: 'flex-wrap: wrap',
+                                                a_o: [
+                                                    { s_tag: 'div', ':class': "'sidebar__btn_sm interactable' + (b_show__large_ve1 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(0)', innerText: 'L 1x' },
+                                                    { s_tag: 'div', ':class': "'sidebar__btn_sm interactable' + (b_show__large_ve2 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(1)', innerText: 'L 2x' },
+                                                    { s_tag: 'div', ':class': "'sidebar__btn_sm interactable' + (b_show__medium_ve1 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(2)', innerText: 'M 1x' },
+                                                    { s_tag: 'div', ':class': "'sidebar__btn_sm interactable' + (b_show__medium_ve2 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(3)', innerText: 'M 2x' },
+                                                    { s_tag: 'div', ':class': "'sidebar__btn_sm interactable' + (b_show__keychain_ve1 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(4)', innerText: 'K 1x' },
+                                                    { s_tag: 'div', ':class': "'sidebar__btn_sm interactable' + (b_show__keychain_ve2 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(5)', innerText: 'K 2x' },
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                    // resolution info
+                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 's_resolution', innerText: '{{ s_resolution }}' },
                                 ],
                             },
-                            // load from file
+                            // --- SECTION: Export ---
                             {
-                                class: 'bw3d__section',
+                                class: 'sidebar__section',
                                 a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Or load from file' },
-                                    { s_tag: 'input', type: 'file', accept: 'image/*', 'v-on:change': 'f_load_file($event)', class: 'bw3d__input_file' },
-                                ],
-                            },
-                            // max resolution
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Max resolution' },
-                                    { s_tag: 'input', type: 'number', ':value': 'n_max_resolution', 'v-on:change': 'f_set_max_resolution(Number($event.target.value))', min: '8', max: '5000', step: '8', class: 'bw3d__input' },
-                                    { s_tag: 'div', class: 'bw3d__info', innerText: 'Image will be downsampled if larger' },
-                                ],
-                            },
-                            // 3d preview
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: '3D Preview' },
+                                    { s_tag: 'label', class: 'sidebar__heading', innerText: 'Export' },
                                     {
                                         s_tag: 'div',
-                                        class: 'main__3d_container',
-                                        ref: 'container__three',
-                                        a_o: [
-                                            { s_tag: 'canvas', ref: 'canvas__three' },
-                                        ],
+                                        ':class': "'sidebar__btn_primary interactable' + (b_exporting ? ' disabled' : '')",
+                                        'v-on:click': 'f_generate_and_download',
+                                        innerText: "{{ b_exporting ? 'Generating...' : 'Generate & Download STL' }}",
                                     },
-                                ],
-                            },
-                            // action buttons
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
                                     {
                                         class: 'bw3d__row',
-                                        style: 'flex-wrap: wrap',
+                                        style: 'flex-wrap: wrap; margin-top: 4px',
                                         a_o: [
-                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_generate_mesh', innerText: 'Generate 3D' },
-                                            { s_tag: 'div', class: 'bw3d__btn interactable', 'v-on:click': 'f_generate_and_download', innerText: 'Generate & Download' },
+                                            {
+                                                s_tag: 'div',
+                                                ':class': "'sidebar__btn_sm interactable' + (b_exporting ? ' disabled' : '')",
+                                                'v-on:click': 'f_export',
+                                                innerText: 'Export heightmap',
+                                            },
+                                            {
+                                                s_tag: 'div',
+                                                'v-if': 'o_config && o_config.b_has_export_png',
+                                                ':class': "'sidebar__btn_sm interactable' + (b_exporting ? ' disabled' : '')",
+                                                'v-on:click': 'f_export_png',
+                                                innerText: 'Export PNG',
+                                            },
+                                            {
+                                                s_tag: 'div',
+                                                'v-if': 'n_tile_col > 1 || n_tile_row > 1',
+                                                ':class': "'sidebar__btn_sm interactable' + (b_tiling__running ? ' disabled' : '')",
+                                                'v-on:click': 'f_start_tiling',
+                                                innerText: "{{ b_tiling__running ? 'Exporting tiles...' : 'Export all tiles' }}",
+                                            },
                                         ],
                                     },
+                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'b_tiling__running || s_tiling__status', innerText: '{{ s_tiling__status }}' },
                                 ],
                             },
-                            // variant preview toggles
+                            // --- SECTION: Advanced (collapsible) ---
                             {
-                                class: 'bw3d__section',
-                                'v-if': 'b_variant__generated',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Show variant' },
-                                    {
-                                        class: 'bw3d__row',
-                                        a_o: [
-                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__large_ve1 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(0)', innerText: 'Large 1x' },
-                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__large_ve2 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(1)', innerText: 'Large 2x' },
-                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__medium_ve1 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(2)', innerText: 'Medium 1x' },
-                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__medium_ve2 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(3)', innerText: 'Medium 2x' },
-                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__keychain_ve1 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(4)', innerText: 'Key 1x' },
-                                            { s_tag: 'div', ':class': "'bw3d__toolbar_btn interactable' + (b_show__keychain_ve2 ? ' active' : '')", 'v-on:click': 'f_toggle_variant_preview(5)', innerText: 'Key 2x' },
-                                        ],
-                                    },
-                                ],
-                            },
-                            // resolution info
-                            {
-                                class: 'bw3d__section',
-                                'v-if': 's_resolution',
-                                a_o: [
-                                    { s_tag: 'div', class: 'bw3d__info', innerText: '{{ s_resolution }}' },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            },
-            // overlay: 3d config
-            {
-                s_tag: 'div',
-                ':class': "'bw3d__overlay' + (b_overlay__3d_config ? ' visible' : '')",
-                ':style': 'o_style__overlay__3d_config',
-                ref: 'overlay__3d_config',
-                'v-if': 's_source',
-                a_o: [
-                    {
-                        s_tag: 'div',
-                        class: 'bw3d__overlay_header',
-                        'v-on:pointerdown': "f_drag_start($event, '3d_config')",
-                        a_o: [
-                            { s_tag: 'span', class: 'bw3d__overlay_title', innerText: '3D Config' },
-                            { s_tag: 'span', class: 'bw3d__overlay_close interactable', 'v-on:click': 'b_overlay__3d_config = false', innerHTML: '&times;' },
-                        ],
-                    },
-                    {
-                        s_tag: 'div',
-                        class: 'bw3d__overlay_body',
-                        a_o: [
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Geometry' },
-                                    {
-                                        s_tag: 'select',
-                                        'v-model': 's_type__geometry',
-                                        class: 'bw3d__select',
-                                        a_o: [
-                                            { s_tag: 'option', value: 'sphere', innerText: 'Sphere' },
-                                            { s_tag: 'option', value: 'cylinder', innerText: 'Cylinder' },
-                                            { s_tag: 'option', value: 'plane', innerText: 'Plane' },
-                                        ],
-                                    },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Height multiplier: {{ n_factor.toFixed(1) }}x (1.0 = true scale)' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_factor', min: '0', max: '3', step: '0.1', class: 'bw3d__range' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Max width (mm)' },
-                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_mm__max_width', min: '1', step: '1', class: 'bw3d__input' },
-                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'n_m_per_pixel__3d > 0', innerText: 'Scale 1:{{ f_s__format_number(f_n__nice_round(n_m_per_pixel__3d * n_scl_x__map_selection * 1000 / n_mm__max_width)) }} — elevation {{ Math.round(n_m__elevation_min) }}m–{{ Math.round(n_m__elevation_max) }}m' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane'",
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Min side face (mm): {{ n_mm__min_side.toFixed(1) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__min_side', min: '5', max: '30', step: '0.5', class: 'bw3d__range' },
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Baseplate (mm): {{ n_mm__baseplate.toFixed(1) }}' },
-                                ],
-                            },
-                            // chamfer toggle + angle
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane'",
-                                a_o: [
-                                    {
-                                        class: 'bw3d__row',
-                                        a_o: [
-                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_chamfer__enabled', id: 'chk_chamfer_enabled' },
-                                            { s_tag: 'label', for: 'chk_chamfer_enabled', class: 'bw3d__label', innerText: 'Chamfer (overhang-free vertical printing)' },
-                                        ],
-                                    },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane' && b_chamfer__enabled",
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Chamfer angle: {{ n_deg__chamfer }}°' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_deg__chamfer', min: '1', max: '45', step: '1', class: 'bw3d__range' },
-                                    { s_tag: 'div', class: 'bw3d__info', innerText: 'Tilts bottom face for overhang-free vertical printing' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane'",
-                                a_o: [
-                                    {
-                                        class: 'bw3d__row',
-                                        a_o: [
-                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_text__enabled', id: 'chk_text_enabled' },
-                                            { s_tag: 'label', for: 'chk_text_enabled', class: 'bw3d__label', innerText: 'Carve text into baseplate' },
-                                        ],
-                                    },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane' && b_text__enabled",
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Text' },
-                                    { s_tag: 'textarea', 'v-model': 's_text__carve', class: 'bw3d__input bw3d__textarea', rows: '3', maxlength: '200' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane' && b_text__enabled",
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Carve depth (mm): {{ n_mm__text_depth.toFixed(2) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__text_depth', min: '0.05', max: '2', step: '0.05', class: 'bw3d__range' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane'",
-                                a_o: [
-                                    {
-                                        class: 'bw3d__row',
-                                        a_o: [
-                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_hole__enabled', id: 'chk_hole_enabled' },
-                                            { s_tag: 'label', for: 'chk_hole_enabled', class: 'bw3d__label', innerText: 'Corner hole' },
-                                        ],
-                                    },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane' && b_hole__enabled",
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Diameter (mm): {{ n_mm__hole_diameter.toFixed(1) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__hole_diameter', min: '1', max: '10', step: '0.5', class: 'bw3d__range' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane' && b_hole__enabled",
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Margin (mm): {{ n_mm__hole_margin.toFixed(1) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__hole_margin', min: '1', max: '10', step: '0.5', class: 'bw3d__range' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': "s_type__geometry === 'plane' && b_hole__enabled",
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Corner' },
-                                    {
-                                        s_tag: 'select',
-                                        'v-model': 's_corner__hole',
-                                        class: 'bw3d__select',
-                                        a_o: [
-                                            { s_tag: 'option', value: 'tl', innerText: 'Top-left' },
-                                            { s_tag: 'option', value: 'tr', innerText: 'Top-right' },
-                                            { s_tag: 'option', value: 'bl', innerText: 'Bottom-left' },
-                                            { s_tag: 'option', value: 'br', innerText: 'Bottom-right' },
-                                        ],
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            },
-            // overlay: scene
-            {
-                s_tag: 'div',
-                ':class': "'bw3d__overlay' + (b_overlay__scene ? ' visible' : '')",
-                ':style': 'o_style__overlay__scene',
-                ref: 'overlay__scene',
-                'v-if': 's_source',
-                a_o: [
-                    {
-                        s_tag: 'div',
-                        class: 'bw3d__overlay_header',
-                        'v-on:pointerdown': "f_drag_start($event, 'scene')",
-                        a_o: [
-                            { s_tag: 'span', class: 'bw3d__overlay_title', innerText: 'Scene' },
-                            { s_tag: 'span', class: 'bw3d__overlay_close interactable', 'v-on:click': 'b_overlay__scene = false', innerHTML: '&times;' },
-                        ],
-                    },
-                    {
-                        s_tag: 'div',
-                        class: 'bw3d__overlay_body',
-                        a_o: [
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Background color' },
-                                    { s_tag: 'input', type: 'color', ':value': 's_color__bg', 'v-on:input': 'f_set_color_bg($event.target.value)', class: 'bw3d__input_color' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Mesh color' },
-                                    { s_tag: 'input', type: 'color', ':value': 's_color__mesh', 'v-on:input': 'f_set_color_mesh($event.target.value)', class: 'bw3d__input_color' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Wireframe' },
-                                    { s_tag: 'input', type: 'checkbox', 'v-model': 'b_wireframe', 'v-on:change': 'f_set_wireframe' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Height colormap (blue → green → red)' },
-                                    { s_tag: 'input', type: 'checkbox', 'v-model': 'b_colormap__height' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Ambient light: {{ n_intensity__ambient.toFixed(2) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_intensity__ambient', 'v-on:input': 'f_set_ambient', min: '0', max: '2', step: '0.01', class: 'bw3d__range' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Directional light: {{ n_intensity__directional.toFixed(2) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_intensity__directional', 'v-on:input': 'f_set_directional', min: '0', max: '3', step: '0.01', class: 'bw3d__range' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Auto-rotate' },
-                                    { s_tag: 'input', type: 'checkbox', 'v-model': 'b_autorotate', 'v-on:change': 'f_set_autorotate' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Rotation speed: {{ n_speed__rotation.toFixed(2) }}' },
-                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_speed__rotation', 'v-on:input': 'f_set_rotation_speed', min: '0', max: '5', step: '0.01', class: 'bw3d__range' },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            },
-            // overlay: tiling
-            {
-                s_tag: 'div',
-                ':class': "'bw3d__overlay' + (b_overlay__tiling ? ' visible' : '')",
-                ':style': 'o_style__overlay__tiling',
-                ref: 'overlay__tiling',
-                'v-if': 's_source',
-                a_o: [
-                    {
-                        s_tag: 'div',
-                        class: 'bw3d__overlay_header',
-                        'v-on:pointerdown': "f_drag_start($event, 'tiling')",
-                        a_o: [
-                            { s_tag: 'span', class: 'bw3d__overlay_title', innerText: 'Tiling' },
-                            { s_tag: 'span', class: 'bw3d__overlay_close interactable', 'v-on:click': 'b_overlay__tiling = false', innerHTML: '&times;' },
-                        ],
-                    },
-                    {
-                        s_tag: 'div',
-                        class: 'bw3d__overlay_body',
-                        a_o: [
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', a_o: [
-                                        { s_tag: 'input', type: 'checkbox', 'v-model': 'b_tiling__preview', style: 'margin-right: 6px' },
-                                        { s_tag: 'span', innerText: 'Show tile grid on map' },
-                                    ]},
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Columns' },
-                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_tile_col', min: '1', max: '20', step: '1', class: 'bw3d__input' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Rows' },
-                                    { s_tag: 'input', type: 'number', 'v-model.number': 'n_tile_row', min: '1', max: '20', step: '1', class: 'bw3d__input' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                a_o: [
-                                    { s_tag: 'div', class: 'bw3d__info', innerText: '{{ n_tile_col * n_tile_row }} tile(s)' },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
+                                class: 'sidebar__section',
                                 a_o: [
                                     {
                                         s_tag: 'div',
-                                        ':class': "'bw3d__btn interactable' + (b_tiling__running ? ' disabled' : '')",
-                                        'v-on:click': 'f_start_tiling',
-                                        innerText: "{{ b_tiling__running ? 'Exporting...' : 'Export all tiles' }}",
+                                        class: 'sidebar__heading sidebar__heading--toggle interactable',
+                                        'v-on:click': 'b_advanced_open = !b_advanced_open',
+                                        a_o: [
+                                            { s_tag: 'span', innerText: 'Advanced' },
+                                            { s_tag: 'span', class: 'sidebar__toggle_icon', innerText: "{{ b_advanced_open ? '−' : '+' }}" },
+                                        ],
                                     },
-                                ],
-                            },
-                            {
-                                class: 'bw3d__section',
-                                'v-if': 'b_tiling__running || s_tiling__status',
-                                a_o: [
-                                    { s_tag: 'div', class: 'bw3d__info', innerText: '{{ s_tiling__status }}' },
+                                    {
+                                        s_tag: 'div',
+                                        class: 'sidebar__advanced_body',
+                                        'v-if': 'b_advanced_open',
+                                        a_o: [
+                                            // -- 3D Config --
+                                            { s_tag: 'div', class: 'sidebar__subheading', innerText: '3D Geometry' },
+                                            {
+                                                class: 'bw3d__section',
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Geometry type' },
+                                                    {
+                                                        s_tag: 'select',
+                                                        'v-model': 's_type__geometry',
+                                                        class: 'sidebar__select',
+                                                        a_o: [
+                                                            { s_tag: 'option', value: 'sphere', innerText: 'Sphere' },
+                                                            { s_tag: 'option', value: 'cylinder', innerText: 'Cylinder' },
+                                                            { s_tag: 'option', value: 'plane', innerText: 'Plane' },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__section',
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Vertical exaggeration: {{ n_factor.toFixed(1) }}x' },
+                                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_factor', min: '0', max: '3', step: '0.1', class: 'bw3d__range' },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__section',
+                                                'v-if': "s_type__geometry === 'plane'",
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Min side face (mm): {{ n_mm__min_side.toFixed(1) }}' },
+                                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__min_side', min: '5', max: '30', step: '0.5', class: 'bw3d__range' },
+                                                    { s_tag: 'div', class: 'bw3d__info', innerText: 'Baseplate: {{ n_mm__baseplate.toFixed(1) }} mm' },
+                                                ],
+                                            },
+                                            // chamfer
+                                            {
+                                                class: 'bw3d__section',
+                                                'v-if': "s_type__geometry === 'plane'",
+                                                a_o: [
+                                                    {
+                                                        class: 'bw3d__row',
+                                                        a_o: [
+                                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_chamfer__enabled', id: 'chk_chamfer_enabled' },
+                                                            { s_tag: 'label', for: 'chk_chamfer_enabled', class: 'bw3d__label', innerText: 'Chamfer' },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__section',
+                                                'v-if': "s_type__geometry === 'plane' && b_chamfer__enabled",
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Angle: {{ n_deg__chamfer }}deg' },
+                                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_deg__chamfer', min: '1', max: '45', step: '1', class: 'bw3d__range' },
+                                                ],
+                                            },
+                                            // text carving
+                                            {
+                                                class: 'bw3d__section',
+                                                'v-if': "s_type__geometry === 'plane'",
+                                                a_o: [
+                                                    {
+                                                        class: 'bw3d__row',
+                                                        a_o: [
+                                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_text__enabled', id: 'chk_text_enabled' },
+                                                            { s_tag: 'label', for: 'chk_text_enabled', class: 'bw3d__label', innerText: 'Carve text' },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__section',
+                                                'v-if': "s_type__geometry === 'plane' && b_text__enabled",
+                                                a_o: [
+                                                    { s_tag: 'textarea', 'v-model': 's_text__carve', class: 'sidebar__input bw3d__textarea', rows: '3', maxlength: '200' },
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Depth (mm): {{ n_mm__text_depth.toFixed(2) }}' },
+                                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__text_depth', min: '0.05', max: '2', step: '0.05', class: 'bw3d__range' },
+                                                ],
+                                            },
+                                            // corner hole
+                                            {
+                                                class: 'bw3d__section',
+                                                'v-if': "s_type__geometry === 'plane'",
+                                                a_o: [
+                                                    {
+                                                        class: 'bw3d__row',
+                                                        a_o: [
+                                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_hole__enabled', id: 'chk_hole_enabled' },
+                                                            { s_tag: 'label', for: 'chk_hole_enabled', class: 'bw3d__label', innerText: 'Corner hole' },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__section',
+                                                'v-if': "s_type__geometry === 'plane' && b_hole__enabled",
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Diameter: {{ n_mm__hole_diameter.toFixed(1) }} mm' },
+                                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__hole_diameter', min: '1', max: '10', step: '0.5', class: 'bw3d__range' },
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Margin: {{ n_mm__hole_margin.toFixed(1) }} mm' },
+                                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_mm__hole_margin', min: '1', max: '10', step: '0.5', class: 'bw3d__range' },
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Corner' },
+                                                    {
+                                                        s_tag: 'select',
+                                                        'v-model': 's_corner__hole',
+                                                        class: 'sidebar__select',
+                                                        a_o: [
+                                                            { s_tag: 'option', value: 'tl', innerText: 'Top-left' },
+                                                            { s_tag: 'option', value: 'tr', innerText: 'Top-right' },
+                                                            { s_tag: 'option', value: 'bl', innerText: 'Bottom-left' },
+                                                            { s_tag: 'option', value: 'br', innerText: 'Bottom-right' },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            // max resolution
+                                            {
+                                                class: 'bw3d__section',
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Max resolution (px)' },
+                                                    { s_tag: 'input', type: 'number', ':value': 'n_max_resolution', 'v-on:change': 'f_set_max_resolution(Number($event.target.value))', min: '8', max: '5000', step: '8', class: 'sidebar__input' },
+                                                    { s_tag: 'div', class: 'bw3d__info', innerText: 'Image will be downsampled if larger' },
+                                                ],
+                                            },
+                                            // load from file
+                                            {
+                                                class: 'bw3d__section',
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Load heightmap from file' },
+                                                    { s_tag: 'input', type: 'file', accept: 'image/*', 'v-on:change': 'f_load_file($event)', class: 'bw3d__input_file' },
+                                                ],
+                                            },
+                                            // -- Scene Config --
+                                            { s_tag: 'div', class: 'sidebar__subheading', style: 'margin-top: 8px', innerText: 'Scene' },
+                                            {
+                                                class: 'bw3d__section',
+                                                a_o: [
+                                                    {
+                                                        class: 'bw3d__row',
+                                                        a_o: [
+                                                            { s_tag: 'label', class: 'bw3d__label', style: 'flex: 1', innerText: 'BG color' },
+                                                            { s_tag: 'input', type: 'color', ':value': 's_color__bg', 'v-on:input': 'f_set_color_bg($event.target.value)', class: 'bw3d__input_color' },
+                                                            { s_tag: 'label', class: 'bw3d__label', style: 'flex: 1; margin-left: 8px', innerText: 'Mesh' },
+                                                            { s_tag: 'input', type: 'color', ':value': 's_color__mesh', 'v-on:input': 'f_set_color_mesh($event.target.value)', class: 'bw3d__input_color' },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__section',
+                                                a_o: [
+                                                    {
+                                                        class: 'bw3d__row',
+                                                        a_o: [
+                                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_wireframe', 'v-on:change': 'f_set_wireframe' },
+                                                            { s_tag: 'label', class: 'bw3d__label', innerText: 'Wireframe' },
+                                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_colormap__height', style: 'margin-left: 12px' },
+                                                            { s_tag: 'label', class: 'bw3d__label', innerText: 'Height color' },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__section',
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Ambient: {{ n_intensity__ambient.toFixed(2) }}' },
+                                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_intensity__ambient', 'v-on:input': 'f_set_ambient', min: '0', max: '2', step: '0.01', class: 'bw3d__range' },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__section',
+                                                a_o: [
+                                                    { s_tag: 'label', class: 'bw3d__label', innerText: 'Directional: {{ n_intensity__directional.toFixed(2) }}' },
+                                                    { s_tag: 'input', type: 'range', 'v-model.number': 'n_intensity__directional', 'v-on:input': 'f_set_directional', min: '0', max: '3', step: '0.01', class: 'bw3d__range' },
+                                                ],
+                                            },
+                                            {
+                                                class: 'bw3d__section',
+                                                a_o: [
+                                                    {
+                                                        class: 'bw3d__row',
+                                                        a_o: [
+                                                            { s_tag: 'input', type: 'checkbox', 'v-model': 'b_autorotate', 'v-on:change': 'f_set_autorotate' },
+                                                            { s_tag: 'label', class: 'bw3d__label', innerText: 'Auto-rotate' },
+                                                        ],
+                                                    },
+                                                    { s_tag: 'input', 'v-if': 'b_autorotate', type: 'range', 'v-model.number': 'n_speed__rotation', 'v-on:input': 'f_set_rotation_speed', min: '0', max: '5', step: '0.01', class: 'bw3d__range' },
+                                                ],
+                                            },
+                                        ],
+                                    },
                                 ],
                             },
                         ],
@@ -717,19 +584,10 @@ let o_component__unified = {
             _o_layer__elevation: null,
             n_resolution: 1320,
 
-            // --- preview panel ---
-            b_preview: false,
-            o_style__overlay__preview: { left: '20px', top: '100px' },
+            // --- preview / sidebar ---
             s_data_url__heightmap: '',
             s_resolution: '',
-
-            // --- 3d overlay visibility ---
-            b_overlay__3d_config: false,
-            b_overlay__scene: false,
-            b_overlay__tiling: false,
-            o_style__overlay__3d_config: { left: '20px', top: '100px' },
-            o_style__overlay__scene: { left: '340px', top: '100px' },
-            o_style__overlay__tiling: { left: '340px', top: '400px' },
+            b_advanced_open: false,
 
             // --- 3d image data ---
             a_n__image_data: null,
@@ -815,10 +673,6 @@ let o_component__unified = {
             _n_id__animation__minimap: null,
             _n_id__debounce__minimap: null,
 
-            // --- drag state ---
-            _s_drag_overlay: null,
-            _n_drag_off_x: 0,
-            _n_drag_off_y: 0,
         };
     },
 
@@ -898,13 +752,6 @@ let o_component__unified = {
 
         // init three.js
         self.f_init_three();
-
-        // position preview panel bottom-right
-        self.$nextTick(function () {
-            let n_x = Math.max(20, window.innerWidth - 460);
-            let n_y = Math.max(60, window.innerHeight - 580);
-            self.o_style__overlay__preview = { left: n_x + 'px', top: n_y + 'px' };
-        });
     },
 
     beforeUnmount: function () {
@@ -1174,8 +1021,6 @@ let o_component__unified = {
                     o_image.src = o_result.s_data_url;
                 });
 
-                // open preview panel
-                this.b_preview = true;
             } catch (o_error) {
                 this.s_status = 'Error: ' + o_error.message;
                 console.error(o_error);
@@ -1292,7 +1137,6 @@ let o_component__unified = {
                 o_image.src = s_data_url;
             };
             o_reader.readAsDataURL(o_file);
-            o_self.b_preview = true;
         },
 
         f_set_max_resolution: function (n_val) {
@@ -2081,7 +1925,6 @@ let o_component__unified = {
             }
 
             o_self.b_variant__generated = true;
-            o_self.b_preview = true;
         },
 
         // ===================== OPENSCAD EXPORT =====================
@@ -2524,7 +2367,7 @@ let o_component__unified = {
 
             let { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
 
-            let n_sz = 200;
+            let n_sz = el_canvas.parentElement.clientWidth || 200;
             let o_renderer = new THREE.WebGLRenderer({ canvas: el_canvas, antialias: true, alpha: true });
             o_renderer.setPixelRatio(window.devicePixelRatio);
             o_renderer.setSize(n_sz, n_sz);
@@ -2694,31 +2537,6 @@ let o_component__unified = {
             o_self.b_minimap__loading = false;
         },
 
-        // ===================== OVERLAY DRAG =====================
-
-        f_drag_start: function (o_evt, s_overlay) {
-            let o_self = this;
-            o_self._s_drag_overlay = s_overlay;
-            let s_key = 'overlay__' + s_overlay;
-            let el = o_self.$refs[s_key];
-            if (!el) return;
-            o_self._n_drag_off_x = o_evt.clientX - el.offsetLeft;
-            o_self._n_drag_off_y = o_evt.clientY - el.offsetTop;
-            o_evt.target.setPointerCapture(o_evt.pointerId);
-
-            let f_move = function (o_evt2) {
-                let n_x = Math.max(0, Math.min(o_evt2.clientX - o_self._n_drag_off_x, window.innerWidth - 100));
-                let n_y = Math.max(0, Math.min(o_evt2.clientY - o_self._n_drag_off_y, window.innerHeight - 40));
-                let o_style_key = 'o_style__overlay__' + s_overlay;
-                o_self[o_style_key] = { left: n_x + 'px', top: n_y + 'px', right: 'auto', bottom: 'auto' };
-            };
-            let f_up = function () {
-                document.removeEventListener('pointermove', f_move);
-                document.removeEventListener('pointerup', f_up);
-            };
-            document.addEventListener('pointermove', f_move);
-            document.addEventListener('pointerup', f_up);
-        },
     },
 };
 
