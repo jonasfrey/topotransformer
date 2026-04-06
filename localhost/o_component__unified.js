@@ -230,6 +230,9 @@ let o_component__unified = {
                         { s_tag: 'div', class: 'map__selection_corner map__selection_corner--tr' },
                         { s_tag: 'div', class: 'map__selection_corner map__selection_corner--bl' },
                         { s_tag: 'div', class: 'map__selection_corner map__selection_corner--br' },
+                        // tiling grid lines
+                        { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_col > 1', class: 'map__tile_grid_col', 'v-for': 'n in (n_tile_col - 1)', ':style': '{ left: (n / n_tile_col * 100) + "%", top: "0", bottom: "0" }' },
+                        { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_row > 1', class: 'map__tile_grid_row', 'v-for': 'n in (n_tile_row - 1)', ':style': '{ top: (n / n_tile_row * 100) + "%", left: "0", right: "0" }' },
                     ]},
                 ],
             },
@@ -635,6 +638,15 @@ let o_component__unified = {
                             {
                                 class: 'bw3d__section',
                                 a_o: [
+                                    { s_tag: 'label', class: 'bw3d__label', a_o: [
+                                        { s_tag: 'input', type: 'checkbox', 'v-model': 'b_tiling__preview', style: 'margin-right: 6px' },
+                                        { s_tag: 'span', innerText: 'Show tile grid on map' },
+                                    ]},
+                                ],
+                            },
+                            {
+                                class: 'bw3d__section',
+                                a_o: [
                                     { s_tag: 'label', class: 'bw3d__label', innerText: 'Columns' },
                                     { s_tag: 'input', type: 'number', 'v-model.number': 'n_tile_col', min: '1', max: '20', step: '1', class: 'bw3d__input' },
                                 ],
@@ -753,6 +765,7 @@ let o_component__unified = {
             n_tile_row: 3,
             b_tiling__running: false,
             s_tiling__status: '',
+            b_tiling__preview: false,
 
             // --- scene ---
             s_color__bg: '#0a0a12',
