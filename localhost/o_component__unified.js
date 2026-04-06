@@ -73,6 +73,9 @@ let o_component__unified = {
                                 { s_tag: 'div', class: 'map__selection_corner map__selection_corner--tr' },
                                 { s_tag: 'div', class: 'map__selection_corner map__selection_corner--bl' },
                                 { s_tag: 'div', class: 'map__selection_corner map__selection_corner--br' },
+                                // dimension labels
+                                { s_tag: 'div', class: 'map__selection_label map__selection_label--top', 'v-if': 's_mm_label_x', innerText: '{{ s_mm_label_x }}' },
+                                { s_tag: 'div', class: 'map__selection_label map__selection_label--right', 'v-if': 's_mm_label_y', innerText: '{{ s_mm_label_y }}' },
                                 // tiling grid lines
                                 { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_col > 1', class: 'map__tile_grid_col', 'v-for': 'n in (n_tile_col - 1)', ':style': '{ left: (n / n_tile_col * 100) + "%", top: "0", bottom: "0" }' },
                                 { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_row > 1', class: 'map__tile_grid_row', 'v-for': 'n in (n_tile_row - 1)', ':style': '{ top: (n / n_tile_row * 100) + "%", left: "0", right: "0" }' },
@@ -240,8 +243,10 @@ let o_component__unified = {
                                             { s_tag: 'input', type: 'number', 'v-model.number': 'n_resolution', min: '32', max: '1024', step: '32', class: 'sidebar__input' },
                                         ],
                                     },
-                                    // scale info
-                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'n_m_per_pixel__3d > 0', innerText: 'Scale 1:{{ f_s__format_number(f_n__nice_round(n_m_per_pixel__3d * n_scl_x__map_selection * 1000 / n_mm__max_width)) }} — elevation {{ Math.round(n_m__elevation_min) }}m – {{ Math.round(n_m__elevation_max) }}m' },
+                                    // map scale ratio
+                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 's_scale__map', innerText: 'Map scale: 1:{{ s_scale__map }}' },
+                                    // print scale info (after export)
+                                    { s_tag: 'div', class: 'bw3d__info', 'v-if': 'n_m_per_pixel__3d > 0', innerText: 'Print scale 1:{{ f_s__format_number(f_n__nice_round(n_m_per_pixel__3d * n_scl_x__map_selection * 1000 / n_mm__max_width)) }} — elevation {{ Math.round(n_m__elevation_min) }}m – {{ Math.round(n_m__elevation_max) }}m' },
                                 ],
                             },
                             // --- SECTION: 3D Preview ---
@@ -729,6 +734,32 @@ let o_component__unified = {
             if (!this.o_config) return '';
             return this.o_config.s_zoom_label(this);
         },
+        s_mm_label_x: function () {
+            let o_sel = this.o_selection;
+            if (o_sel.n_scl_x === 0 || o_sel.n_scl_y === 0) return '';
+            let n_mm_x, n_mm_y;
+            if (o_sel.n_scl_x >= o_sel.n_scl_y) {
+                n_mm_x = this.n_mm__max_width;
+                n_mm_y = Math.round(this.n_mm__max_width * o_sel.n_scl_y / o_sel.n_scl_x);
+            } else {
+                n_mm_y = this.n_mm__max_width;
+                n_mm_x = Math.round(this.n_mm__max_width * o_sel.n_scl_x / o_sel.n_scl_y);
+            }
+            return n_mm_x + ' mm';
+        },
+        s_mm_label_y: function () {
+            let o_sel = this.o_selection;
+            if (o_sel.n_scl_x === 0 || o_sel.n_scl_y === 0) return '';
+            let n_mm_x, n_mm_y;
+            if (o_sel.n_scl_x >= o_sel.n_scl_y) {
+                n_mm_x = this.n_mm__max_width;
+                n_mm_y = Math.round(this.n_mm__max_width * o_sel.n_scl_y / o_sel.n_scl_x);
+            } else {
+                n_mm_y = this.n_mm__max_width;
+                n_mm_x = Math.round(this.n_mm__max_width * o_sel.n_scl_x / o_sel.n_scl_y);
+            }
+            return n_mm_y + ' mm';
+        },
         n_deg__chamfer_effective: function () {
             return this.b_chamfer__enabled ? this.n_deg__chamfer : 0;
         },
@@ -907,6 +938,8 @@ let o_component__unified = {
                 }
 
                 L.tileLayer(o_cfg.s_url__tile, o_tile_options).addTo(o_map);
+
+                L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(o_map);
 
                 self._o_map = o_map;
 

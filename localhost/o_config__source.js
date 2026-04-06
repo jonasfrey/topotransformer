@@ -456,15 +456,19 @@ let o_config__switzerland = {
 
     f_update_zoom_info: function (o_comp) {
         if (!o_comp._o_map) return;
-        o_comp.n_zoom = Math.round(o_comp._o_map.getZoom());
-        o_comp.s_quality = 'High-res Swiss elevation data';
+        let n_zoom = Math.round(o_comp._o_map.getZoom());
+        let n_lat = o_comp._o_map.getCenter().lat;
+        let n_m_per_pixel = 40075016.686 * Math.cos(n_lat * Math.PI / 180) / (256 * Math.pow(2, n_zoom));
+        o_comp.n_zoom = n_zoom;
+        o_comp.n_m_per_pixel = Math.round(n_m_per_pixel);
+        let n_scale__map = Math.round(n_m_per_pixel / 0.0002646);
+        o_comp.s_scale__map = o_comp.f_s__format_number(o_comp.f_n__nice_round(n_scale__map));
+        o_comp.s_quality = 'High-res Swiss elevation data (0.5m native)';
         o_comp.s_quality_class = 'quality_native';
-        o_comp.s_scale__map = '';
-        o_comp.n_m_per_pixel = 0;
     },
 
     s_zoom_label: function (o_comp) {
-        return 'Zoom ' + o_comp.n_zoom + ' — swisstopo swissALTI3D (0.5m native)';
+        return 'Zoom ' + o_comp.n_zoom + ' — ~' + o_comp.n_m_per_pixel + 'm/px — 1:' + o_comp.s_scale__map;
     },
 
     f_search: async function (o_comp) {
@@ -844,7 +848,8 @@ let o_config__mars = {
         let n_m_per_pixel = 21344000 * Math.cos(n_lat * Math.PI / 180) / (256 * Math.pow(2, n_zoom));
         o_comp.n_zoom = n_zoom;
         o_comp.n_m_per_pixel = Math.round(n_m_per_pixel);
-        o_comp.s_scale__map = '';
+        let n_scale__map = Math.round(n_m_per_pixel / 0.0002646);
+        o_comp.s_scale__map = o_comp.f_s__format_number(o_comp.f_n__nice_round(n_scale__map));
 
         if (n_m_per_pixel > 500) {
             o_comp.s_quality = 'native MOLA data (~463m)';
@@ -860,7 +865,7 @@ let o_config__mars = {
     },
 
     s_zoom_label: function (o_comp) {
-        return 'Zoom ' + o_comp.n_zoom + ' — ~' + o_comp.n_m_per_pixel + 'm/px — MOLA 463m native';
+        return 'Zoom ' + o_comp.n_zoom + ' — ~' + o_comp.n_m_per_pixel + 'm/px — 1:' + o_comp.s_scale__map;
     },
 
     f_search: null,
