@@ -1060,6 +1060,26 @@ main {
     color: var(--c-accent);
 }
 
+.sidebar__warning {
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--r);
+    background: rgba(237, 137, 54, 0.12);
+    border: 1px solid rgba(237, 137, 54, 0.4);
+    font-size: 11px;
+    color: var(--c-warning);
+    line-height: 1.4;
+}
+
+.sidebar__warning_text {
+    font-weight: 500;
+}
+
+.sidebar__resolution_ok {
+    font-size: 11px;
+    color: var(--c-success);
+    padding: 0.2rem 0;
+}
+
 .sidebar__minimap {
     position: relative;
     width: 100%;

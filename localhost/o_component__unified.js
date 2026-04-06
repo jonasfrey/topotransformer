@@ -243,6 +243,28 @@ let o_component__unified = {
                                             { s_tag: 'input', type: 'number', 'v-model.number': 'n_resolution', min: '32', max: '1024', step: '32', class: 'sidebar__input' },
                                         ],
                                     },
+                                    // print resolution (dp/mm)
+                                    {
+                                        class: 'bw3d__section',
+                                        a_o: [
+                                            { s_tag: 'label', class: 'bw3d__label', title: 'Optimized for FDM printing with a 0.2mm nozzle (5 dp/mm minimum). Higher values capture more detail but increase file size.', innerText: 'Print resolution (dp/mm)' },
+                                            { s_tag: 'input', type: 'number', 'v-model.number': 'n_dp_per_mm', min: '1', max: '20', step: '1', class: 'sidebar__input' },
+                                        ],
+                                    },
+                                    // resolution warning
+                                    {
+                                        class: 'sidebar__warning',
+                                        'v-if': 'o_resolution_warning && !o_resolution_warning.b_sufficient',
+                                        a_o: [
+                                            { s_tag: 'div', class: 'sidebar__warning_text', innerText: 'Source: ~{{ o_resolution_warning.n_m__source }}m/px — target requires ~{{ o_resolution_warning.n_m__required }}m/px. Zoom in or reduce print resolution.' },
+                                        ],
+                                    },
+                                    // resolution OK indicator
+                                    {
+                                        class: 'sidebar__resolution_ok',
+                                        'v-if': 'o_resolution_warning && o_resolution_warning.b_sufficient',
+                                        innerText: 'Resolution OK (source {{ o_resolution_warning.n_m__source }}m, need {{ o_resolution_warning.n_m__required }}m)',
+                                    },
                                     // map scale ratio
                                     { s_tag: 'div', class: 'bw3d__info', 'v-if': 's_scale__map', innerText: 'Map scale: 1:{{ s_scale__map }}' },
                                     // print scale info (after export)
@@ -593,6 +615,7 @@ let o_component__unified = {
             s_data_url__heightmap: '',
             s_resolution: '',
             b_advanced_open: false,
+            n_dp_per_mm: 8,
 
             // --- 3d image data ---
             a_n__image_data: null,
@@ -766,6 +789,24 @@ let o_component__unified = {
         n_mm__baseplate: function () {
             let n_mm__displacement = this.f_n_mm__displacement(this.n_mm__max_width, this.n_factor);
             return this.f_n_mm__baseplate(n_mm__displacement, this.n_mm__min_side);
+        },
+        o_resolution_warning: function () {
+            if (!this.o_config || this.n_m_per_pixel === 0 || !this._o_map) return null;
+            let o_sel = this.o_selection;
+            if (o_sel.n_scl_x === 0) return null;
+            // real-world width of selection in meters
+            let n_m__real_width = this.n_m_per_pixel * o_sel.n_scl_x;
+            // required resolution: how many meters per datapoint the print needs
+            let n_m__required = n_m__real_width / (this.n_mm__max_width * this.n_dp_per_mm);
+            let n_m__source = this.o_config.n_m__native_resolution;
+            if (!n_m__source) return null;
+            let b_sufficient = n_m__source <= n_m__required;
+            return {
+                b_sufficient: b_sufficient,
+                n_m__source: n_m__source,
+                n_m__required: Math.round(n_m__required * 10) / 10,
+                n_m__real_width: Math.round(n_m__real_width),
+            };
         },
     },
 
