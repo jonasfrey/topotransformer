@@ -26,11 +26,8 @@ import {
 import {
     f_o_html_from_o_js,
 } from "./lib/handyhelpers.js"
-import { o_component__data } from './o_component__data.js';
-import { o_component__filebrowser } from './o_component__filebrowser.js';
 import { o_component__bw_image_to_3d } from './o_component__bw_image_to_3d.js';
 import { o_component__unified } from './o_component__unified.js';
-import { o_component__landslide } from './o_component__landslide.js';
 import './css_helper.js';
 
 import { o_logmsg__run_command } from "./runtimedata.js";
@@ -50,24 +47,9 @@ let o_state = reactive({
             component: markRaw(o_component__unified),
         },
         {
-            path: '/data',
-            name: 'data',
-            component: markRaw(o_component__data),
-        },
-        {
-            path: '/filebrowser',
-            name: 'filebrowser',
-            component: markRaw(o_component__filebrowser),
-        },
-        {
             path: '/bw-image-to-3d',
             name: 'bw-image-to-3d',
             component: markRaw(o_component__bw_image_to_3d),
-        },
-        {
-            path: '/landslide',
-            name: 'landslide',
-            component: markRaw(o_component__landslide),
         },
     ],
     a_o_model,

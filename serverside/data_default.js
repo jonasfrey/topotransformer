@@ -13,7 +13,7 @@ let o_o_keyvalpair__default = {
     },
     o_keyvalpair__s_path_page_selected : {
         s_key: 's_path_page_selected',
-        s_value: '/data',
+        s_value: '/main',
     },
     o_keyvalpair__s_root_dir : {
         s_key: 's_root_dir',
