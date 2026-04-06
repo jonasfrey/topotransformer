@@ -553,7 +553,7 @@ let f_o_group__build_variant = function (THREE, o_config, a_n__image_data, n_scl
     if (n_mm__baseplate_override != null) {
         n_mm__baseplate = n_mm__baseplate_override;
     } else {
-        n_mm__baseplate = Math.max(1, o_config.n_mm__baseplate * (n_mm_width / o_config.n_mm__max_width));
+        n_mm__baseplate = Math.max(10, o_config.n_mm__baseplate * (n_mm_width / o_config.n_mm__max_width));
         n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
     }
 
@@ -629,7 +629,7 @@ let f_s__openscad_script = function (o_config, n_scl_x__image, n_scl_y__image, n
     if (n_mm__baseplate_override != null) {
         n_mm__baseplate = n_mm__baseplate_override;
     } else {
-        n_mm__baseplate = Math.max(1, o_config.n_mm__baseplate * (n_mm_width / o_config.n_mm__max_width));
+        n_mm__baseplate = Math.max(10, o_config.n_mm__baseplate * (n_mm_width / o_config.n_mm__max_width));
         n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
     }
 

@@ -1631,7 +1631,7 @@ let o_component__unified = {
 
         f_n_mm__baseplate: function (n_mm__displacement, n_mm__min_side) {
             let n_mm__side_from_terrain = 2 * n_mm__displacement;
-            let n_mm__baseplate = Math.max(0, n_mm__min_side - n_mm__side_from_terrain);
+            let n_mm__baseplate = Math.max(10, n_mm__min_side - n_mm__side_from_terrain);
             n_mm__baseplate = Math.round(n_mm__baseplate * 2) / 2;
             return n_mm__baseplate;
         },
