@@ -2574,16 +2574,13 @@ let o_component__unified = {
             let THREE = o_self._THREE;
             o_self.b_minimap__loading = true;
 
+            let n_resolution__saved = o_self.n_resolution;
             try {
                 // temporarily override resolution for Switzerland to use coarse grid
-                let n_resolution__saved = o_self.n_resolution;
                 let n_coarse = 64;
                 o_self.n_resolution = n_coarse;
 
                 let o_result = await o_self.o_config.f_s_data_url__from_elevation(o_self);
-
-                // restore resolution
-                o_self.n_resolution = n_resolution__saved;
 
                 // decode heightmap into grayscale array
                 let o_image = new Image();
@@ -2677,6 +2674,8 @@ let o_component__unified = {
             } catch (o_err) {
                 // silently ignore preview errors — user didn't request this
                 console.warn('minimap preview:', o_err.message);
+            } finally {
+                o_self.n_resolution = n_resolution__saved;
             }
 
             o_self.b_minimap__loading = false;
