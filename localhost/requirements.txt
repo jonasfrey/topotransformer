@@ -1,0 +1,8 @@
+requirements.txt
+
+GUI: 
+data source 'swiss topo' (switzerland only)
+nasa (full world)
+
+the map should by default show topographic image layer. 
+the tiling should not be a overlay. but be a input 
