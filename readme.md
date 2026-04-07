@@ -1,87 +1,95 @@
-# CRUD template
+# Topotransformer
 
-Deno · SQLite · Vue 3 · WebSocket
+### Turn any place on Earth (or Mars) into a 3D-printable terrain model.
+
+Pick a location, adjust the region, and download print-ready STL files — all from your browser. No cloud processing, no account needed. Your data stays on your machine.
+
+![Topography animation](marketing/topography.gif)
+
+---
+
+## What you get
+
+Search for any place — the Matterhorn, Grand Canyon, Mount Fuji — and Topotransformer turns real elevation data into solid 3D models you can hold in your hands.
+
+Every export gives you **6 ready-to-print STL files**: large (220 mm), medium (160 mm), and keychain (35 mm) sizes, each at 1x and 2x vertical exaggeration. Plus matching OpenSCAD scripts if you want to tweak parameters in a CAD workflow.
+
+| Gornergrat region — Riffelhorn, Hohtalli, Rote Nase | Grindelwald — Eiger, Monch, Jungfrau, Lake Brienz |
+|---|---|
+| ![Gornergrat 3D print](marketing/gornergrat_annoted.png) | ![Grindelwald 3D print](marketing/grindelwald_annoted.png) |
+
+## Three terrain sources
+
+- **Global** — Worldwide coverage from SRTM elevation data (~30 m resolution). Mountains, canyons, volcanoes, coastlines — anywhere on Earth.
+- **Switzerland** — Ultra-high-resolution swissALTI3D data (0.5 m). Every ridge, cliff face, and alpine valley in stunning detail.
+- **Mars** — MOLA elevation data (~463 m resolution). Olympus Mons, Valles Marineris, and the rest of the Red Planet.
+
+## Print-optimized
+
+Models are designed for FDM 3D printing out of the box:
+
+- **Solid baseplate** with auto-calculated thickness
+- **Chamfer option** for overhang-free vertical printing
+- **Text engraving** on the baseplate — location name, scale ratio, and vertical exaggeration are carved into the bottom
+- **Corner hole** for keychains
+- **Scale ruler** engraved alongside the text
+- **Tiling** — split large regions into N x N tiles that fit together
+
+## Live preview
+
+See a 3D preview of your terrain before committing to an export. Orbit, zoom, and inspect the model with height-colored visualization right in the sidebar.
+
+## Resolution awareness
+
+A built-in resolution indicator tells you whether the source data is detailed enough for your target print size. No more guessing — if you need to zoom in or reduce print resolution, the app tells you.
+
+---
 
 ## Quick start
 
 ```
-mkdir project_name && cd project_name
-deno eval "import { f_init_project } from 'jsr:@apn/websersocketgui@{version}/init'; await f_init_project();"
+git clone <repo-url> && cd topotransformer
 deno task run
 ```
 
-Open `http://localhost:8000`
+Open `http://localhost:8000` — select a terrain source and start exploring.
 
-## Tasks
+### Requirements
 
-- `deno task run` — start the server
-- `deno task uninit` — delete database and reset project data
+- [Deno](https://deno.land/) runtime
 
+### Tasks
 
-## project structure 
-root 
-    serverside
-        basically all server side code goes here
-    localhost
-        all data that is accessable on the website client
-    
-## APN
-This project is coded entirely with APN Abstract Prefix Notation. To get a better understanding you can read the paper https://www.techrxiv.org/users/1031649/articles/1391488-abstract-prefix-notation-apn-a-type-encoding-naming-methodology-for-programming?commit=571d0b8647fbee85c242544375a07d5cf4238bef
+| Command | Action |
+|---------|--------|
+| `deno task run` | Start the server |
+| `deno task stop` | Stop the server |
+| `deno task restart` | Restart |
+| `deno task rmdb` | Clear database |
 
-## for programmers
-### native javascript main language
-Native Javscript is the main language!!! where ever possible use it!
+---
 
-### shared state
-'o_state' is a runtime object that is synchronized between: server-client-db
-strictly only use f_v_sync to update data!!!
+## Technical details
 
-### performance
-it is more important to have a nice and convenient way to write and understand the software than it to be fast 
-This application might not be to most performant but it is without question one of the most handy convenient. 
+**Stack:** Deno backend, Vue 3 + Three.js + Leaflet.js frontend (all CDN-loaded, no bundler or build step).
 
+**Data flow:**
+```
+Leaflet map selection
+  → Fetch elevation tiles (RGB-encoded PNGs)
+  → Decode to meters via source-specific formula
+  → Generate grayscale heightmap
+  → Three.js vertex displacement on PlaneGeometry
+  → Solid geometry with baseplate + chamfer + text + holes
+  → Binary STL export
+```
 
-### shared functions
-since javascript is used on the client side and on the server side there are many redundancies that can be removed by simply creating a function on the client side and use the same function on the server side.
+**Architecture:** WebSocket communication between browser and Deno server. SQLite or JSON file database for state persistence. All 3D processing and STL generation happens client-side in the browser — the server only serves static files and proxies tile requests.
 
-since client side and server side is mainly programmed in native javascript , all functions that can be shared should be shared. this application already has a perfect example for this by having the data structure models on client side which then are loaded by the server. so all functions that are non sensitive have to be shared.
+**Code style:** The entire codebase uses [APN (Abstract Prefix Notation)](https://www.techrxiv.org/users/1031649/articles/1391488-abstract-prefix-notation-apn-a-type-encoding-naming-methodology-for-programming?commit=571d0b8647fbee85c242544375a07d5cf4238bef) — a type-prefixed naming convention where every variable declares its type (`n_` number, `s_` string, `b_` boolean, `o_` object, `a_` array, `f_` function).
 
-### communication 
-main communication is done by a websocket. http requests should be avoided , instead websocket messages are used. there is also a websocket message function that expects a response. it should be used to replace the 'classical' http fetch. 
+---
 
-### cli 
-if a part of the programm can only be executed by calling a binary this can be done but the master scripts should all be in javascript. is required
+Jonas Immanuel Frey — 2026
 
-### cli scripts
-each cli script should have a human readable 'normal' text output , but also should output a json.
-
-
-
-## Security through obscurity is bad
-On first glance this project could be considered insecure. but this is only because it is clearly programmed. A system is not more secure just because it is a mess and the programmer themself do not know what they are doing. so keep in mind to program as clear and simple as possible. You can and must use simple and pragmatic code, it does not make the program insecure!
-
-This project exposes many functionalities of the 'server' which is essentaly the computer . The webapplication GUI 'only' serves as a front end for the application. However this can be extended in a way to make it a sturdy and secure webapplication. The fundamentals however are here to give full access to the computer. This is not unsecure, it is just a solid base. 
-Remember: 
-Just because a system is unclear and obfuscated, it does not mean it is secure. security through obscurity is not good. 
-
-
-## Project example templates
-
-the current workspace holds a complete template / boilerplate / preset  for a full front and backend application including a GUI. it mostly written in native javascript. it seems like a  webapplication but is not a 'website' or 'webapp' in the classical sense. it simply makes use of the browser to make use of the convenient javascript/html/css GUI possibilities. it can be extended to any kind of application, for example: 
-- Utility — small focused tool (calculator, file renamer, converter)
-- Monitoring tool — GPU stats, system health, network traffic
-- Dashboard — visual overview of data/metrics
-- Admin panel — manage a service or system
-- Developer tool / devtool — debugger, profiler, code generator
-- Productivity app — notes, task manager, editor
-- Automation tool — scripting, scheduling, batch processing
-- Creative tool — 3D modeling, image editing, music production
-- Communication tool — chat, video, collaboration
-- Data viewer / explorer — database browser, log viewer, file inspector. 
-
-
-## 
-
-[Jonas Immanuel Frey] - 2026
-
-Have Fun !
+Licensed under GPLv2. See [LICENSE](LICENSE) for details.
