@@ -2289,7 +2289,7 @@ let o_component__unified = {
             return { a_n__gray, n_scl_x: n_out_x, n_scl_y: n_out_y };
         },
 
-        f_o_group__from_data: function (a_n__data, n_scl_x, n_scl_y) {
+        f_o_group__from_data: function (a_n__data, n_scl_x, n_scl_y, n_m__real_width_tile) {
             let o_self = this;
             let THREE = o_self._THREE;
             let s_type = o_self.s_type__geometry;
@@ -2323,7 +2323,22 @@ let o_component__unified = {
             let o_group = new THREE.Group();
 
             if (s_type === 'plane' && o_self.n_mm__baseplate > 0) {
-                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer_effective);
+                // generate text mask for tile backside engraving
+                let a_n__text_mask = null;
+                if (o_self.b_text__enabled && n_m__real_width_tile > 0) {
+                    let n_ratio = n_scl_x / n_scl_y;
+                    let n_mm_plate_x = n_ratio >= 1 ? o_self.n_mm__max_width : o_self.n_mm__max_width * n_ratio;
+                    let n_mm_plate_y = n_ratio >= 1 ? o_self.n_mm__max_width / n_ratio : o_self.n_mm__max_width;
+                    let n_scale = n_m__real_width_tile * 1000 / n_mm_plate_x;
+                    let n_scale__nice = o_self.f_n__nice_round(n_scale);
+                    let a_s__line = ['TopoPrints'];
+                    if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
+                    a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
+                    let s_text = a_s__line.join('\n');
+                    let n_mm__chamfer_depth_tile = o_self.n_deg__chamfer_effective > 0 ? (o_self.n_mm__baseplate + n_mm__displacement) / Math.tan(o_self.n_deg__chamfer_effective * Math.PI / 180) : 0;
+                    a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width_tile, n_mm__chamfer_depth_tile);
+                }
+                let o_geom__solid = o_self.f_o_geometry__solid_plane(o_geometry, o_self.n_mm__baseplate, o_self.n_deg__chamfer_effective, a_n__text_mask, o_self.n_mm__text_depth);
                 o_geom__solid.computeVertexNormals();
                 let o_mesh = new THREE.Mesh(o_geom__solid, new THREE.MeshBasicMaterial());
                 o_group.add(o_mesh);
@@ -2350,10 +2365,19 @@ let o_component__unified = {
             let n_sel_w = o_self.n_scl_x__full;
             let n_sel_h = o_self.n_scl_y__full;
 
+            // compute per-tile real-world width for text engraving (scale + ruler)
+            let n_m__real_width_full = (o_self.n_m_per_pixel__3d > 0 && o_self.n_scl_x__map_selection > 0)
+                ? o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection
+                : 0;
+            let n_m__real_width_tile = n_m__real_width_full / n_col;
+
             let n_tile_w = Math.floor(n_sel_w / n_col);
             let n_tile_h = Math.floor(n_sel_h / n_row);
             let n_total = n_col * n_row;
             let n_done = 0;
+
+            let s_name = o_self.s_name__location || 'topo';
+            s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
             for (let n_r = 0; n_r < n_row; n_r++) {
                 for (let n_c = 0; n_c < n_col; n_c++) {
@@ -2368,7 +2392,7 @@ let o_component__unified = {
                     await new Promise(function (f_resolve) { setTimeout(f_resolve, 100); });
 
                     let o_region = o_self.f_a_n__extract_region(n_x, n_y, n_w, n_h);
-                    let o_group = o_self.f_o_group__from_data(o_region.a_n__gray, o_region.n_scl_x, o_region.n_scl_y);
+                    let o_group = o_self.f_o_group__from_data(o_region.a_n__gray, o_region.n_scl_x, o_region.n_scl_y, n_m__real_width_tile);
                     let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
                     o_group.traverse(function (o_child) {
@@ -2376,7 +2400,7 @@ let o_component__unified = {
                         if (o_child.material) o_child.material.dispose();
                     });
 
-                    let s_filename = 'tile_r' + (n_r + 1) + '_c' + (n_c + 1) + '.stl';
+                    let s_filename = s_name + '_tile_r' + (n_r + 1) + '_c' + (n_c + 1) + '.stl';
                     o_self.f_download_buffer(o_buffer, s_filename);
 
                     await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
