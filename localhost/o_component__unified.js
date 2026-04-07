@@ -224,15 +224,6 @@ let o_component__unified = {
                                             },
                                         ],
                                     },
-                                    // resolution input (switzerland only)
-                                    {
-                                        class: 'bw3d__section',
-                                        'v-if': 'o_config && o_config.b_has_resolution_input',
-                                        a_o: [
-                                            { s_tag: 'label', class: 'bw3d__label', innerText: 'Tile resolution (px)' },
-                                            { s_tag: 'input', type: 'number', 'v-model.number': 'n_resolution', min: '32', max: '1024', step: '32', class: 'sidebar__input' },
-                                        ],
-                                    },
                                     // print resolution (dp/mm)
                                     {
                                         class: 'bw3d__section',
@@ -600,13 +591,11 @@ let o_component__unified = {
             s_name__location: '',
             b_elevation_overlay: false,
             _o_layer__elevation: null,
-            n_resolution: 1320,
-
             // --- preview / sidebar ---
             s_data_url__heightmap: '',
             s_resolution: '',
             b_advanced_open: false,
-            n_dp_per_mm: 8,
+            n_dp_per_mm: 5,
 
             // --- 3d image data ---
             a_n__image_data: null,
@@ -1783,7 +1772,7 @@ let o_component__unified = {
             let THREE = o_self._THREE;
             let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
 
-            n_pxmm = n_pxmm || 10;
+            n_pxmm = n_pxmm || o_self.n_dp_per_mm || 5;
             let n_max_px = Math.round(n_mm_width * n_pxmm);
             let n_src_x = o_self.n_scl_x__image;
             let n_src_y = o_self.n_scl_y__image;
@@ -2523,13 +2512,9 @@ let o_component__unified = {
             let THREE = o_self._THREE;
             o_self.b_minimap__loading = true;
 
-            let n_resolution__saved = o_self.n_resolution;
             try {
-                // temporarily override resolution for Switzerland to use coarse grid
-                let n_coarse = 64;
-                o_self.n_resolution = n_coarse;
-
-                let o_result = await o_self.o_config.f_s_data_url__from_elevation(o_self);
+                // pass coarse resolution override for minimap preview
+                let o_result = await o_self.o_config.f_s_data_url__from_elevation(o_self, 64);
 
                 // decode heightmap into grayscale array
                 let o_image = new Image();
@@ -2623,8 +2608,6 @@ let o_component__unified = {
             } catch (o_err) {
                 // silently ignore preview errors — user didn't request this
                 console.warn('minimap preview:', o_err.message);
-            } finally {
-                o_self.n_resolution = n_resolution__saved;
             }
 
             o_self.b_minimap__loading = false;

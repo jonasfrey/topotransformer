@@ -681,20 +681,21 @@ let o_config__switzerland = {
         return a_n.slice(0, n_cnt__point);
     },
 
-    f_s_data_url__from_elevation: async function (o_comp) {
+    f_s_data_url__from_elevation: async function (o_comp, n_resolution__override) {
         let o_bounds = o_config__switzerland.f_o_bounds__selection(o_comp);
         if (!o_bounds) throw new Error('Cannot determine selection bounds');
 
         let o_sel = o_comp.o_selection;
         let n_ratio = o_sel.n_scl_x / o_sel.n_scl_y;
 
+        let n_resolution = n_resolution__override || Math.round(o_comp.n_dp_per_mm * o_comp.n_mm__max_width);
         let n_scl_x__out, n_scl_y__out;
         if (n_ratio >= 1) {
-            n_scl_x__out = o_comp.n_resolution;
-            n_scl_y__out = Math.round(o_comp.n_resolution / n_ratio);
+            n_scl_x__out = n_resolution;
+            n_scl_y__out = Math.round(n_resolution / n_ratio);
         } else {
-            n_scl_y__out = o_comp.n_resolution;
-            n_scl_x__out = Math.round(o_comp.n_resolution * n_ratio);
+            n_scl_y__out = n_resolution;
+            n_scl_x__out = Math.round(n_resolution * n_ratio);
         }
         n_scl_x__out = Math.max(1, n_scl_x__out);
         n_scl_y__out = Math.max(1, n_scl_y__out);
