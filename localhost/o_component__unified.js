@@ -77,8 +77,8 @@ let o_component__unified = {
                                 { s_tag: 'div', class: 'map__selection_label map__selection_label--top', 'v-if': 's_mm_label_x', innerText: '{{ s_mm_label_x }}' },
                                 { s_tag: 'div', class: 'map__selection_label map__selection_label--right', 'v-if': 's_mm_label_y', innerText: '{{ s_mm_label_y }}' },
                                 // tiling grid lines
-                                { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_col > 1', class: 'map__tile_grid_col', 'v-for': 'n in (n_tile_col - 1)', ':style': '{ left: (n / n_tile_col * 100) + "%", top: "0", bottom: "0" }' },
-                                { s_tag: 'div', 'v-if': 'b_tiling__preview && n_tile_row > 1', class: 'map__tile_grid_row', 'v-for': 'n in (n_tile_row - 1)', ':style': '{ top: (n / n_tile_row * 100) + "%", left: "0", right: "0" }' },
+                                { s_tag: 'div', 'v-if': 'n_tile_col > 1', class: 'map__tile_grid_col', 'v-for': 'n in (n_tile_col - 1)', ':style': '{ left: (n / n_tile_col * 100) + "%", top: "0", bottom: "0" }' },
+                                { s_tag: 'div', 'v-if': 'n_tile_row > 1', class: 'map__tile_grid_row', 'v-for': 'n in (n_tile_row - 1)', ':style': '{ top: (n / n_tile_row * 100) + "%", left: "0", right: "0" }' },
                             ]},
                         ],
                     },
@@ -222,16 +222,6 @@ let o_component__unified = {
                                                     { s_tag: 'span', class: 'bw3d__info', innerText: '= {{ n_tile_col * n_tile_row }} tile(s)' },
                                                 ],
                                             },
-                                            {
-                                                class: 'bw3d__row',
-                                                'v-if': 'n_tile_col > 1 || n_tile_row > 1',
-                                                a_o: [
-                                                    { s_tag: 'label', class: 'bw3d__label', a_o: [
-                                                        { s_tag: 'input', type: 'checkbox', 'v-model': 'b_tiling__preview', style: 'margin-right: 6px' },
-                                                        { s_tag: 'span', innerText: 'Show grid on map' },
-                                                    ]},
-                                                ],
-                                            },
                                         ],
                                     },
                                     // resolution input (switzerland only)
@@ -334,9 +324,9 @@ let o_component__unified = {
                                     { s_tag: 'label', class: 'sidebar__heading', innerText: 'Export' },
                                     {
                                         s_tag: 'div',
-                                        ':class': "'sidebar__btn_primary interactable' + (b_exporting ? ' disabled' : '')",
+                                        ':class': "'sidebar__btn_primary interactable' + ((b_exporting || b_tiling__running) ? ' disabled' : '')",
                                         'v-on:click': 'f_generate_and_download',
-                                        innerText: "{{ b_exporting ? 'Generating...' : 'Generate & Download STL' }}",
+                                        innerText: "{{ b_tiling__running ? 'Exporting tiles...' : b_exporting ? 'Generating...' : (n_tile_col > 1 || n_tile_row > 1) ? 'Generate & Download ' + (n_tile_col * n_tile_row) + ' STL tiles' : 'Generate & Download STL' }}",
                                     },
                                     {
                                         class: 'bw3d__row',
@@ -360,13 +350,6 @@ let o_component__unified = {
                                                 ':class': "'sidebar__btn_sm interactable' + (b_exporting ? ' disabled' : '')",
                                                 'v-on:click': 'f_export_png',
                                                 innerText: 'Export PNG',
-                                            },
-                                            {
-                                                s_tag: 'div',
-                                                'v-if': 'n_tile_col > 1 || n_tile_row > 1',
-                                                ':class': "'sidebar__btn_sm interactable' + (b_tiling__running ? ' disabled' : '')",
-                                                'v-on:click': 'f_start_tiling',
-                                                innerText: "{{ b_tiling__running ? 'Exporting tiles...' : 'Export all tiles' }}",
                                             },
                                         ],
                                     },
@@ -655,8 +638,8 @@ let o_component__unified = {
             n_scl_x__map_selection: 0,
 
             // --- tiling ---
-            n_tile_col: 3,
-            n_tile_row: 3,
+            n_tile_col: 1,
+            n_tile_row: 1,
             b_tiling__running: false,
             s_tiling__status: '',
             b_tiling__preview: false,
@@ -2258,6 +2241,12 @@ let o_component__unified = {
             // always run export to capture the current map view
             await o_self.f_export();
             if (!o_self.a_n__image_data) return;
+
+            // if tiling is set (more than 1x1), export all tiles
+            if (o_self.n_tile_col > 1 || o_self.n_tile_row > 1) {
+                await o_self.f_start_tiling();
+                return;
+            }
 
             // download 6 STL files + preview
             await o_self.f_download_stl_all();

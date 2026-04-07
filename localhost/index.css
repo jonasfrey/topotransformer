@@ -772,15 +772,15 @@ main {
 
 .map__tile_grid_col {
     position: absolute;
-    width: 1px;
-    border-left: 1px dashed rgba(255, 100, 100, 0.7);
+    width: 2px;
+    border-left: 2px solid rgba(255, 255, 255, 0.9);
     pointer-events: none;
 }
 
 .map__tile_grid_row {
     position: absolute;
-    height: 1px;
-    border-top: 1px dashed rgba(255, 100, 100, 0.7);
+    height: 2px;
+    border-top: 2px solid rgba(255, 255, 255, 0.9);
     pointer-events: none;
 }
 
