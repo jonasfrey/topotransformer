@@ -1580,7 +1580,7 @@ let o_component__unified = {
         f_s__format_coord: function (n_lat, n_lon) {
             let s_lat = Math.abs(n_lat).toFixed(4) + '°' + (n_lat >= 0 ? 'N' : 'S');
             let s_lon = Math.abs(n_lon).toFixed(4) + '°' + (n_lon >= 0 ? 'E' : 'W');
-            return s_lat + ' ' + s_lon;
+            return s_lat + '\n' + s_lon;
         },
 
         f_n__nice_round: function (n_val) {
