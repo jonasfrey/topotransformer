@@ -625,6 +625,11 @@ let o_component__unified = {
             n_m__elevation_min: 0,
             n_m__elevation_max: 0,
             n_scl_x__map_selection: 0,
+            // geo bounds of exported selection (set on export)
+            n_lat__north: 0,
+            n_lat__south: 0,
+            n_lon__west: 0,
+            n_lon__east: 0,
 
             // --- tiling ---
             n_tile_col: 1,
@@ -1054,6 +1059,15 @@ let o_component__unified = {
                 this.n_m__elevation_max = o_result.n_m__elevation_max;
                 this.n_scl_x__map_selection = o_result.n_scl_x__selection;
 
+                // store geo bounds of selection
+                let o_sel = this.o_selection;
+                let o_latlng__nw = this._o_map.containerPointToLatLng(L.point(o_sel.n_x, o_sel.n_y));
+                let o_latlng__se = this._o_map.containerPointToLatLng(L.point(o_sel.n_x + o_sel.n_scl_x, o_sel.n_y + o_sel.n_scl_y));
+                this.n_lat__north = o_latlng__nw.lat;
+                this.n_lat__south = o_latlng__se.lat;
+                this.n_lon__west = o_latlng__nw.lng;
+                this.n_lon__east = o_latlng__se.lng;
+
                 // process image for 3d generation
                 let o_self = this;
                 let o_image = new Image();
@@ -1072,7 +1086,9 @@ let o_component__unified = {
                             let a_s__line = ['bergform.ch'];
                             if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                             a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
-                            a_s__line.push('VE: ' + o_self.n_factor.toFixed(1));
+                            if (o_self.n_lat__north !== 0 || o_self.n_lon__east !== 0) {
+                                a_s__line.push(o_self.f_s__format_coord(o_self.n_lat__north, o_self.n_lon__east));
+                            }
                             o_self.s_text__carve = a_s__line.join('\n');
                         }
                         f_resolve();
@@ -1561,6 +1577,12 @@ let o_component__unified = {
             return n_mm__baseplate;
         },
 
+        f_s__format_coord: function (n_lat, n_lon) {
+            let s_lat = Math.abs(n_lat).toFixed(4) + '°' + (n_lat >= 0 ? 'N' : 'S');
+            let s_lon = Math.abs(n_lon).toFixed(4) + '°' + (n_lon >= 0 ? 'E' : 'W');
+            return s_lat + ' ' + s_lon;
+        },
+
         f_n__nice_round: function (n_val) {
             if (n_val <= 0) return 0;
             let n_magnitude = Math.pow(10, Math.floor(Math.log10(n_val)));
@@ -1852,7 +1874,9 @@ let o_component__unified = {
                 let a_s__line = ['bergform.ch'];
                 if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                 a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
-                a_s__line.push('VE: ' + n_factor.toFixed(1));
+                if (o_self.n_lat__north !== 0 || o_self.n_lon__east !== 0) {
+                    a_s__line.push(o_self.f_s__format_coord(o_self.n_lat__north, o_self.n_lon__east));
+                }
                 let s_text = a_s__line.join('\n');
                 a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width, n_mm__chamfer_depth_variant);
             } else if (o_self.b_text__enabled && o_self.s_text__carve.length > 0) {
@@ -2291,7 +2315,7 @@ let o_component__unified = {
             return { a_n__gray, n_scl_x: n_out_x, n_scl_y: n_out_y };
         },
 
-        f_o_group__from_data: function (a_n__data, n_scl_x, n_scl_y, n_m__real_width_tile) {
+        f_o_group__from_data: function (a_n__data, n_scl_x, n_scl_y, n_m__real_width_tile, o_coord__ne) {
             let o_self = this;
             let THREE = o_self._THREE;
             let s_type = o_self.s_type__geometry;
@@ -2336,6 +2360,9 @@ let o_component__unified = {
                     let a_s__line = ['bergform.ch'];
                     if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                     a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
+                    if (o_coord__ne) {
+                        a_s__line.push(o_self.f_s__format_coord(o_coord__ne.n_lat, o_coord__ne.n_lon));
+                    }
                     let s_text = a_s__line.join('\n');
                     let n_mm__chamfer_depth_tile = o_self.n_deg__chamfer_effective > 0 ? (o_self.n_mm__baseplate + n_mm__displacement) / Math.tan(o_self.n_deg__chamfer_effective * Math.PI / 180) : 0;
                     a_n__text_mask = o_self.f_a_n__text_mask(n_scl_x, n_scl_y, n_mm_plate_x, n_mm_plate_y, s_text, n_m__real_width_tile, n_mm__chamfer_depth_tile);
@@ -2373,6 +2400,14 @@ let o_component__unified = {
                 : 0;
             let n_m__real_width_tile = n_m__real_width_full / n_col;
 
+            // geo bounds for per-tile NE corner coordinates
+            let n_lat__n = o_self.n_lat__north;
+            let n_lat__s = o_self.n_lat__south;
+            let n_lon__w = o_self.n_lon__west;
+            let n_lon__e = o_self.n_lon__east;
+            let n_lat__span = n_lat__n - n_lat__s;
+            let n_lon__span = n_lon__e - n_lon__w;
+
             let n_tile_w = Math.floor(n_sel_w / n_col);
             let n_tile_h = Math.floor(n_sel_h / n_row);
             let n_total = n_col * n_row;
@@ -2393,8 +2428,17 @@ let o_component__unified = {
 
                     await new Promise(function (f_resolve) { setTimeout(f_resolve, 100); });
 
+                    // compute NE corner of this tile in geo coordinates
+                    let o_coord__ne = null;
+                    if (n_lat__span !== 0 || n_lon__span !== 0) {
+                        o_coord__ne = {
+                            n_lat: n_lat__n - (n_r / n_row) * n_lat__span,
+                            n_lon: n_lon__w + ((n_c + 1) / n_col) * n_lon__span,
+                        };
+                    }
+
                     let o_region = o_self.f_a_n__extract_region(n_x, n_y, n_w, n_h);
-                    let o_group = o_self.f_o_group__from_data(o_region.a_n__gray, o_region.n_scl_x, o_region.n_scl_y, n_m__real_width_tile);
+                    let o_group = o_self.f_o_group__from_data(o_region.a_n__gray, o_region.n_scl_x, o_region.n_scl_y, n_m__real_width_tile, o_coord__ne);
                     let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
                     o_group.traverse(function (o_child) {
