@@ -2439,6 +2439,23 @@ let o_component__unified = {
 
                     let o_region = o_self.f_a_n__extract_region(n_x, n_y, n_w, n_h);
                     let o_group = o_self.f_o_group__from_data(o_region.a_n__gray, o_region.n_scl_x, o_region.n_scl_y, n_m__real_width_tile, o_coord__ne);
+
+                    // orient tile so a gluing edge faces the print bed
+                    if (n_c < n_col - 1) {
+                        // has right neighbor: right side on bed
+                        o_group.rotation.y = Math.PI / 2;
+                    } else if (n_c > 0) {
+                        // rightmost column: left side on bed
+                        o_group.rotation.y = -Math.PI / 2;
+                    } else if (n_r < n_row - 1) {
+                        // single column, has bottom neighbor: bottom on bed
+                        o_group.rotation.x = -Math.PI / 2;
+                    } else if (n_r > 0) {
+                        // single column, last row: top on bed
+                        o_group.rotation.x = Math.PI / 2;
+                    }
+                    o_group.updateMatrixWorld(true);
+
                     let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
                     o_group.traverse(function (o_child) {
