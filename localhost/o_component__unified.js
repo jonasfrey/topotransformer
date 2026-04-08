@@ -2440,7 +2440,9 @@ let o_component__unified = {
                     let o_region = o_self.f_a_n__extract_region(n_x, n_y, n_w, n_h);
                     let o_group = o_self.f_o_group__from_data(o_region.a_n__gray, o_region.n_scl_x, o_region.n_scl_y, n_m__real_width_tile, o_coord__ne);
 
-                    // orient tile so a gluing edge faces the print bed
+                    // orient tile so a gluing edge faces the print bed,
+                    // topography facing front of printer (-90° Z)
+                    o_group.rotation.z = -Math.PI / 2;
                     if (n_c < n_col - 1) {
                         // has right neighbor: right side on bed
                         o_group.rotation.y = Math.PI / 2;
