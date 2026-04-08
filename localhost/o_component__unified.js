@@ -613,7 +613,7 @@ let o_component__unified = {
             b_chamfer__enabled: false,
             n_deg__chamfer: 45,
             b_text__enabled: true,
-            s_text__carve: 'TopoPrints',
+            s_text__carve: 'bergform.ch',
             n_mm__text_depth: 0.2,
             b_hole__enabled: false,
             n_mm__hole_diameter: 5,
@@ -1069,7 +1069,7 @@ let o_component__unified = {
                             let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
                             let n_scale = n_m__real_width * 1000 / o_self.n_mm__max_width;
                             let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                            let a_s__line = ['TopoPrints'];
+                            let a_s__line = ['bergform.ch'];
                             if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                             a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
                             a_s__line.push('VE: ' + o_self.n_factor.toFixed(1));
@@ -1540,10 +1540,12 @@ let o_component__unified = {
             o_geometry.setAttribute('color', new THREE.BufferAttribute(a_n__color, 3));
         },
 
-        f_n_mm__displacement: function (n_mm_width, n_factor) {
+        f_n_mm__displacement: function (n_mm_width, n_factor, n_m__real_width_override) {
             let o_self = this;
-            if (o_self.n_m_per_pixel__3d > 0 && o_self.n_scl_x__map_selection > 0) {
-                let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
+            let n_m__real_width = n_m__real_width_override || (o_self.n_m_per_pixel__3d > 0 && o_self.n_scl_x__map_selection > 0
+                ? o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection
+                : 0);
+            if (n_m__real_width > 0) {
                 let n_scale = n_m__real_width * 1000 / n_mm_width;
                 let n_m__elevation_range = o_self.n_m__elevation_max - o_self.n_m__elevation_min;
                 let n_mm__correct = (n_m__elevation_range * 1000 / n_scale) / 2;
@@ -1847,7 +1849,7 @@ let o_component__unified = {
                 let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
                 let n_scale = n_m__real_width * 1000 / n_mm_width;
                 let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                let a_s__line = ['TopoPrints'];
+                let a_s__line = ['bergform.ch'];
                 if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                 a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
                 a_s__line.push('VE: ' + n_factor.toFixed(1));
@@ -2052,7 +2054,7 @@ let o_component__unified = {
             let s_location = o_self.s_name__location || '';
             let n_total_height = n_mm__baseplate + n_mm__displacement;
 
-            let a_s__carve = ['TopoPrints'];
+            let a_s__carve = ['bergform.ch'];
             if (s_location) a_s__carve.push(s_location);
             if (s_scale_text) a_s__carve.push(s_scale_text);
             a_s__carve.push('VE: ' + n_factor.toFixed(1));
@@ -2060,7 +2062,7 @@ let o_component__unified = {
             let n_deg__chamfer_scad = o_self.b_chamfer__enabled ? 45 : 0;
 
             let s = '';
-            s += '// TopoPrints — OpenSCAD model\n';
+            s += '// bergform.ch — OpenSCAD model\n';
             s += '// ' + (s_location || 'Custom heightmap') + '\n';
             s += '// Width: ' + n_mm_width + 'mm, Scale: ' + (s_scale_text || 'N/A') + ', VE: ' + n_factor.toFixed(1) + '\n';
             s += '// Place this file in the same folder as the heightmap PNG\n\n';
@@ -2317,7 +2319,7 @@ let o_component__unified = {
             let n_scl = o_self.n_mm__max_width / n_max_dim;
             o_geometry.scale(n_scl, n_scl, n_scl);
 
-            let n_mm__displacement = o_self.f_n_mm__displacement(o_self.n_mm__max_width, n_factor);
+            let n_mm__displacement = o_self.f_n_mm__displacement(o_self.n_mm__max_width, n_factor, n_m__real_width_tile);
             o_self.f_apply_displacement(o_geometry, a_n__data, n_scl_x, n_scl_y, n_mm__displacement, s_type);
 
             let o_group = new THREE.Group();
@@ -2331,7 +2333,7 @@ let o_component__unified = {
                     let n_mm_plate_y = n_ratio >= 1 ? o_self.n_mm__max_width / n_ratio : o_self.n_mm__max_width;
                     let n_scale = n_m__real_width_tile * 1000 / n_mm_plate_x;
                     let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                    let a_s__line = ['TopoPrints'];
+                    let a_s__line = ['bergform.ch'];
                     if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                     a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
                     let s_text = a_s__line.join('\n');
