@@ -641,6 +641,96 @@ let o_config__switzerland = {
         }
     },
 
+    // fetch Wanderwege raster tiles and extract binary trail mask
+    f_o_trail_mask: async function (o_comp) {
+        let o_bounds = o_config__switzerland.f_o_bounds__selection(o_comp);
+        if (!o_bounds) return null;
+
+        // pick zoom level: aim for ~1mm per pixel at print width
+        let n_zoom = Math.min(Math.max(o_comp._o_map.getZoom(), 13), 16);
+        let n_tile_sz = 256;
+        let n_n = 1 << n_zoom;
+
+        // lat/lon to global pixel coordinates
+        let f_n_px_x = function (n_lon) {
+            return ((n_lon + 180) / 360) * n_tile_sz * n_n;
+        };
+        let f_n_px_y = function (n_lat) {
+            let n_rad = n_lat * Math.PI / 180;
+            return (1 - Math.log(Math.tan(n_rad) + 1 / Math.cos(n_rad)) / Math.PI) / 2 * n_tile_sz * n_n;
+        };
+
+        let n_px_x0 = f_n_px_x(o_bounds.n_lon__west);
+        let n_px_y0 = f_n_px_y(o_bounds.n_lat__north);
+        let n_px_x1 = f_n_px_x(o_bounds.n_lon__east);
+        let n_px_y1 = f_n_px_y(o_bounds.n_lat__south);
+
+        // tile range
+        let n_tile_x0 = Math.floor(n_px_x0 / n_tile_sz);
+        let n_tile_y0 = Math.floor(n_px_y0 / n_tile_sz);
+        let n_tile_x1 = Math.floor(n_px_x1 / n_tile_sz);
+        let n_tile_y1 = Math.floor(n_px_y1 / n_tile_sz);
+        let n_cnt__tile_x = n_tile_x1 - n_tile_x0 + 1;
+        let n_cnt__tile_y = n_tile_y1 - n_tile_y0 + 1;
+
+        if (n_cnt__tile_x * n_cnt__tile_y > 200) {
+            throw new Error('Trail area too large (' + (n_cnt__tile_x * n_cnt__tile_y) + ' tiles). Zoom in.');
+        }
+
+        o_comp.s_status = 'Fetching ' + (n_cnt__tile_x * n_cnt__tile_y) + ' Wanderwege tile(s)...';
+
+        // composite all tiles onto one canvas
+        let el_canvas = document.createElement('canvas');
+        el_canvas.width = n_cnt__tile_x * n_tile_sz;
+        el_canvas.height = n_cnt__tile_y * n_tile_sz;
+        let o_ctx = el_canvas.getContext('2d');
+
+        let a_o_promise = [];
+        for (let n_ty = n_tile_y0; n_ty <= n_tile_y1; n_ty++) {
+            for (let n_tx = n_tile_x0; n_tx <= n_tile_x1; n_tx++) {
+                let n_dx = (n_tx - n_tile_x0) * n_tile_sz;
+                let n_dy = (n_ty - n_tile_y0) * n_tile_sz;
+                let s_url = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swisstlm3d-wanderwege/default/current/3857/'
+                    + n_zoom + '/' + n_tx + '/' + n_ty + '.png';
+                a_o_promise.push(
+                    new Promise(function (f_resolve) {
+                        let o_img = new Image();
+                        o_img.crossOrigin = 'anonymous';
+                        o_img.onload = function () {
+                            o_ctx.drawImage(o_img, n_dx, n_dy);
+                            f_resolve();
+                        };
+                        o_img.onerror = function () { f_resolve(); };
+                        o_img.src = s_url;
+                    })
+                );
+            }
+        }
+        await Promise.all(a_o_promise);
+
+        // crop to exact selection pixel bounds
+        let n_off_x = Math.round(n_px_x0 - n_tile_x0 * n_tile_sz);
+        let n_off_y = Math.round(n_px_y0 - n_tile_y0 * n_tile_sz);
+        let n_crop_w = Math.round(n_px_x1 - n_px_x0);
+        let n_crop_h = Math.round(n_px_y1 - n_px_y0);
+        n_crop_w = Math.min(n_crop_w, el_canvas.width - n_off_x);
+        n_crop_h = Math.min(n_crop_h, el_canvas.height - n_off_y);
+
+        let o_imagedata = o_ctx.getImageData(n_off_x, n_off_y, n_crop_w, n_crop_h);
+
+        // extract alpha channel as binary mask (trail = 1, empty = 0)
+        let a_n__mask = new Uint8Array(n_crop_w * n_crop_h);
+        for (let n_i = 0; n_i < a_n__mask.length; n_i++) {
+            a_n__mask[n_i] = o_imagedata.data[n_i * 4 + 3] > 64 ? 1 : 0;
+        }
+
+        return {
+            a_n__mask: a_n__mask,
+            n_scl_x: n_crop_w,
+            n_scl_y: n_crop_h,
+        };
+    },
+
     f_o_bounds__selection: function (o_comp) {
         let o_map = o_comp._o_map;
         let o_sel = o_comp.o_selection;

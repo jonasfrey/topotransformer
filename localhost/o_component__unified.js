@@ -2134,6 +2134,28 @@ let o_component__unified = {
             }
 
             o_self.b_variant__generated = true;
+
+            // generate Wanderwege trail overlay STL when active
+            if (o_self.b_wanderwege_overlay && o_self.o_config && o_self.o_config.f_o_trail_mask) {
+                try {
+                    o_self.s_status = 'Fetching Wanderwege trail data...';
+                    let o_trail = await o_self.o_config.f_o_trail_mask(o_self);
+                    if (o_trail && o_trail.a_n__mask) {
+                        o_self.s_status = 'Generating trail STL...';
+                        let n_mm_beam = 3;
+                        let o_group__trail = _f_o_group__trail(THREE, o_trail.a_n__mask, o_trail.n_scl_x, o_trail.n_scl_y, o_self.n_mm__max_width, n_mm_beam);
+                        let o_buffer__trail = o_self.f_o_buffer__stl_from_o_group(o_group__trail);
+                        o_group__trail.traverse(function (o_child) {
+                            if (o_child.geometry) o_child.geometry.dispose();
+                            if (o_child.material) o_child.material.dispose();
+                        });
+                        o_self.f_download_buffer(o_buffer__trail, s_name + '_wanderwege.stl');
+                    }
+                } catch (o_err) {
+                    console.error('Trail STL generation failed:', o_err);
+                    o_self.s_status = 'Trail STL error: ' + o_err.message;
+                }
+            }
         },
 
         // ===================== OPENSCAD EXPORT =====================
@@ -2861,7 +2883,7 @@ let o_component__unified = {
 };
 
 // cache the stl_pipeline imports for use in f_o_geometry__solid_plane
-import { f_o_geometry__solid_plane as _f_o_geometry__solid_plane, a_o_variant as _a_o_variant, f_a_n__resample_float as _f_a_n__resample_float } from "./stl_pipeline.js";
+import { f_o_geometry__solid_plane as _f_o_geometry__solid_plane, a_o_variant as _a_o_variant, f_a_n__resample_float as _f_a_n__resample_float, f_o_group__trail as _f_o_group__trail } from "./stl_pipeline.js";
 let await_import_cache = { f_o_geometry__solid_plane: _f_o_geometry__solid_plane };
 
 export { o_component__unified };

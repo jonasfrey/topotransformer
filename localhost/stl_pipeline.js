@@ -926,6 +926,159 @@ let f_generate_and_download_all = async function (THREE, o_config, a_n__image_da
     if (f_on_status) f_on_status('Done — 6 STL + 6 SCAD + heightmap PNG downloaded');
 };
 
+// generate trail overlay STL from binary mask + rectangular border frame
+let f_o_group__trail = function (THREE, a_n__mask, n_mask_x, n_mask_y, n_mm_width, n_mm_beam) {
+    let n_ratio = n_mask_x / n_mask_y;
+    let n_mm_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
+    let n_mm_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
+    let n_dx = n_mm_x / n_mask_x;
+    let n_dy = n_mm_y / n_mask_y;
+    let n_dz = n_mm_beam;
+    let n_half_beam = n_mm_beam / 2;
+
+    // --- trail pixel geometry (voxel-style with internal face culling) ---
+    let a_n__vert = [];
+    let a_n__idx = [];
+    let n_base = 0;
+
+    let f_mask = function (n_col, n_row) {
+        if (n_col < 0 || n_col >= n_mask_x || n_row < 0 || n_row >= n_mask_y) return 0;
+        return a_n__mask[n_row * n_mask_x + n_col];
+    };
+
+    // center the model at origin
+    let n_off_x = -n_mm_x / 2;
+    let n_off_y = -n_mm_y / 2;
+
+    for (let n_row = 0; n_row < n_mask_y; n_row++) {
+        for (let n_col = 0; n_col < n_mask_x; n_col++) {
+            if (!f_mask(n_col, n_row)) continue;
+
+            let x0 = n_off_x + n_col * n_dx;
+            let y0 = n_off_y + (n_mask_y - 1 - n_row) * n_dy;
+            let x1 = x0 + n_dx;
+            let y1 = y0 + n_dy;
+            let z0 = 0;
+            let z1 = n_dz;
+
+            // 8 vertices per voxel
+            n_base = a_n__vert.length / 3;
+            a_n__vert.push(
+                x0, y0, z0,   // 0
+                x1, y0, z0,   // 1
+                x1, y1, z0,   // 2
+                x0, y1, z0,   // 3
+                x0, y0, z1,   // 4
+                x1, y0, z1,   // 5
+                x1, y1, z1,   // 6
+                x0, y1, z1    // 7
+            );
+
+            // top face (always)
+            a_n__idx.push(n_base + 4, n_base + 5, n_base + 6, n_base + 4, n_base + 6, n_base + 7);
+            // bottom face (always)
+            a_n__idx.push(n_base + 0, n_base + 3, n_base + 2, n_base + 0, n_base + 2, n_base + 1);
+
+            // side faces: only where neighbor is empty
+            if (!f_mask(n_col - 1, n_row)) { // left
+                a_n__idx.push(n_base + 0, n_base + 4, n_base + 7, n_base + 0, n_base + 7, n_base + 3);
+            }
+            if (!f_mask(n_col + 1, n_row)) { // right
+                a_n__idx.push(n_base + 1, n_base + 2, n_base + 6, n_base + 1, n_base + 6, n_base + 5);
+            }
+            if (!f_mask(n_col, n_row - 1)) { // top in image = +Y
+                a_n__idx.push(n_base + 3, n_base + 7, n_base + 6, n_base + 3, n_base + 6, n_base + 2);
+            }
+            if (!f_mask(n_col, n_row + 1)) { // bottom in image = -Y
+                a_n__idx.push(n_base + 0, n_base + 1, n_base + 5, n_base + 0, n_base + 5, n_base + 4);
+            }
+        }
+    }
+
+    let o_geom__trail = new THREE.BufferGeometry();
+    o_geom__trail.setAttribute('position', new THREE.Float32BufferAttribute(a_n__vert, 3));
+    o_geom__trail.setIndex(a_n__idx);
+    o_geom__trail.computeVertexNormals();
+
+    // --- rectangular border frame (4 beams) ---
+    let f_o_geom__beam = function (n_x0, n_y0, n_x1, n_y1) {
+        let n_len_x = n_x1 - n_x0;
+        let n_len_y = n_y1 - n_y0;
+        let o_geom = new THREE.BoxGeometry(
+            Math.abs(n_len_x) || n_mm_beam,
+            Math.abs(n_len_y) || n_mm_beam,
+            n_dz
+        );
+        o_geom.translate(
+            (n_x0 + n_x1) / 2,
+            (n_y0 + n_y1) / 2,
+            n_dz / 2
+        );
+        return o_geom;
+    };
+
+    let n_hx = n_mm_x / 2;
+    let n_hy = n_mm_y / 2;
+    // outer edges of the frame sit at the boundary
+    let o_geom__top    = f_o_geom__beam(-n_hx - n_half_beam, n_hy,                n_hx + n_half_beam, n_hy);
+    let o_geom__bottom = f_o_geom__beam(-n_hx - n_half_beam, -n_hy,               n_hx + n_half_beam, -n_hy);
+    let o_geom__left   = f_o_geom__beam(-n_hx,               -n_hy + n_half_beam, -n_hx,               n_hy - n_half_beam);
+    let o_geom__right  = f_o_geom__beam( n_hx,               -n_hy + n_half_beam,  n_hx,               n_hy - n_half_beam);
+
+    // merge all into one geometry
+    let o_merged = new THREE.BufferGeometry();
+    let a_o_geom = [o_geom__trail, o_geom__top, o_geom__bottom, o_geom__left, o_geom__right];
+    let n_total_vert = 0;
+    let n_total_idx = 0;
+    for (let n_i = 0; n_i < a_o_geom.length; n_i++) {
+        let o_g = a_o_geom[n_i];
+        if (o_g.index) {
+            // indexed geometry: need to de-index for merging
+            n_total_vert += o_g.index.count;
+        } else {
+            n_total_vert += o_g.attributes.position.count;
+        }
+    }
+
+    // use BufferGeometryUtils-style merge: convert all to non-indexed then concat
+    let a_n__merged_pos = [];
+    let a_n__merged_nor = [];
+    for (let n_i = 0; n_i < a_o_geom.length; n_i++) {
+        let o_g = a_o_geom[n_i];
+        let o_pos = o_g.attributes.position;
+        let o_nor = o_g.attributes.normal;
+        if (o_g.index) {
+            let o_idx = o_g.index;
+            for (let n_j = 0; n_j < o_idx.count; n_j++) {
+                let n_k = o_idx.array[n_j];
+                a_n__merged_pos.push(o_pos.getX(n_k), o_pos.getY(n_k), o_pos.getZ(n_k));
+                if (o_nor) a_n__merged_nor.push(o_nor.getX(n_k), o_nor.getY(n_k), o_nor.getZ(n_k));
+                else a_n__merged_nor.push(0, 0, 1);
+            }
+        } else {
+            for (let n_j = 0; n_j < o_pos.count; n_j++) {
+                a_n__merged_pos.push(o_pos.getX(n_j), o_pos.getY(n_j), o_pos.getZ(n_j));
+                if (o_nor) a_n__merged_nor.push(o_nor.getX(n_j), o_nor.getY(n_j), o_nor.getZ(n_j));
+                else a_n__merged_nor.push(0, 0, 1);
+            }
+        }
+    }
+
+    o_merged.setAttribute('position', new THREE.Float32BufferAttribute(a_n__merged_pos, 3));
+    o_merged.setAttribute('normal', new THREE.Float32BufferAttribute(a_n__merged_nor, 3));
+
+    // cleanup temp geometries
+    for (let n_i = 0; n_i < a_o_geom.length; n_i++) {
+        a_o_geom[n_i].dispose();
+    }
+
+    let o_material = new THREE.MeshStandardMaterial({ color: 0xcc4400, side: THREE.DoubleSide });
+    let o_mesh = new THREE.Mesh(o_merged, o_material);
+    let o_group = new THREE.Group();
+    o_group.add(o_mesh);
+    return o_group;
+};
+
 export {
     a_o_variant,
     f_a_n__resample_float,
@@ -941,4 +1094,5 @@ export {
     f_o_group__build_variant,
     f_s__openscad_script,
     f_generate_and_download_all,
+    f_o_group__trail,
 };
