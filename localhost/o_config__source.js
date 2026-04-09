@@ -450,6 +450,10 @@ let o_config__switzerland = {
         { s_label: 'Zurich', s_value: '47.375,8.54,13,Zurich' },
         { s_label: 'Geneva', s_value: '46.204,6.143,13,Geneva' },
         { s_label: 'Lugano', s_value: '46.003,8.952,13,Lugano' },
+        { s_label: '── Wanderwege ──', s_value: '', b_disabled: true },
+        { s_label: 'Höhenweg Hohbalm (Zermatt)', s_value: '46.035,7.72,14,Hoehenweg Hohbalm' },
+        { s_label: 'Schynige Platte – Faulhorn – First', s_value: '46.655,7.92,13,Schynige Platte Faulhorn First' },
+        { s_label: 'Cresta di Lema (Ticino)', s_value: '46.10,8.82,14,Cresta di Lema' },
     ],
 
     // extra data fields
