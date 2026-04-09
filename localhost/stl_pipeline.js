@@ -479,8 +479,8 @@ let f_a_n__text_mask = function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_tex
 };
 
 let a_o_variant = [
-    { n_mm_width: 240, s_suffix: 'large_240mm_ve1',    b_hole: false, n_ve: 1.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__large_ve1',    s_flag: 'b_show__large_ve1' },
-    { n_mm_width: 240, s_suffix: 'large_240mm_ve2',    b_hole: false, n_ve: 2.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__large_ve2',    s_flag: 'b_show__large_ve2' },
+    { n_mm_width: 250, s_suffix: 'large_250mm_ve1',    b_hole: false, n_ve: 1.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__large_ve1',    s_flag: 'b_show__large_ve1' },
+    { n_mm_width: 250, s_suffix: 'large_250mm_ve2',    b_hole: false, n_ve: 2.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__large_ve2',    s_flag: 'b_show__large_ve2' },
     { n_mm_width: 160, s_suffix: 'medium_160mm_ve1',   b_hole: false, n_ve: 1.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__medium_ve1',   s_flag: 'b_show__medium_ve1' },
     { n_mm_width: 160, s_suffix: 'medium_160mm_ve2',   b_hole: false, n_ve: 2.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__medium_ve2',   s_flag: 'b_show__medium_ve2' },
     { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1',  b_hole: true,  n_ve: 1.0, n_mm__baseplate__stl: 2,    n_mm__baseplate__scad: 1.5,  n_pxmm: null, s_key: '_o_group__keychain_ve1', s_flag: 'b_show__keychain_ve1' },

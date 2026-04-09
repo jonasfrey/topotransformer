@@ -409,12 +409,12 @@ let o_component__bw_image_to_3d = {
             s_type__geometry: 'plane',
             n_max_resolution: 1200,
             n_factor: 0.5,
-            n_mm__max_width: 240,
+            n_mm__max_width: 250,
             n_mm__min_side: 15,
             n_deg__chamfer: 60,
             // text carving
             b_text__enabled: true,
-            s_text__carve: 'TopoPrints',
+            s_text__carve: 'bergform.ch',
             n_mm__text_depth: 0.2,
             // map metadata (passed from map page)
             n_m_per_pixel: 0,
@@ -1670,7 +1670,7 @@ let o_component__bw_image_to_3d = {
 
                 // build carve text: location name + scale (nicely rounded)
                 let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                let a_s__line = ['TopoPrints'];
+                let a_s__line = ['bergform.ch'];
                 if (s_name__location) a_s__line.push(s_name__location);
                 a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
                 o_self.s_text__carve = a_s__line.join('\n');
