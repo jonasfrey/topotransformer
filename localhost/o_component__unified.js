@@ -171,6 +171,13 @@ let o_component__unified = {
                                                 'v-on:click': 'f_toggle_elevation_overlay',
                                                 innerText: 'Heightmap overlay',
                                             },
+                                            {
+                                                s_tag: 'div',
+                                                ':class': "'sidebar__btn_sm interactable' + (b_wanderwege_overlay ? ' active' : '')",
+                                                'v-on:click': 'f_toggle_wanderwege_overlay',
+                                                'v-if': "s_source === 'switzerland'",
+                                                innerText: 'Wanderwege',
+                                            },
                                         ],
                                     },
                                 ],
@@ -599,6 +606,8 @@ let o_component__unified = {
             s_name__location: '',
             b_elevation_overlay: false,
             _o_layer__elevation: null,
+            b_wanderwege_overlay: false,
+            _o_layer__wanderwege: null,
             // --- preview / sidebar ---
             s_data_url__heightmap: '',
             s_resolution: '',
@@ -844,6 +853,10 @@ let o_component__unified = {
             this._o_map.removeLayer(this._o_layer__elevation);
             this._o_layer__elevation = null;
         }
+        if (this._o_layer__wanderwege && this._o_map) {
+            this._o_map.removeLayer(this._o_layer__wanderwege);
+            this._o_layer__wanderwege = null;
+        }
         if (this._o_map) {
             this._o_map.remove();
             this._o_map = null;
@@ -901,6 +914,11 @@ let o_component__unified = {
                 self._o_map.removeLayer(self._o_layer__elevation);
                 self._o_layer__elevation = null;
             }
+            if (self._o_layer__wanderwege && self._o_map) {
+                self._o_map.removeLayer(self._o_layer__wanderwege);
+                self._o_layer__wanderwege = null;
+            }
+            self.b_wanderwege_overlay = false;
             if (self._o_map) {
                 self._o_map.remove();
                 self._o_map = null;
@@ -1024,6 +1042,12 @@ let o_component__unified = {
         f_toggle_elevation_overlay: function () {
             if (this.o_config) {
                 this.o_config.f_toggle_elevation_overlay(this);
+            }
+        },
+
+        f_toggle_wanderwege_overlay: function () {
+            if (this.o_config && this.o_config.f_toggle_wanderwege_overlay) {
+                this.o_config.f_toggle_wanderwege_overlay(this);
             }
         },
 

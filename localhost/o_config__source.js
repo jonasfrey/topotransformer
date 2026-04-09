@@ -619,6 +619,28 @@ let o_config__switzerland = {
         }
     },
 
+    f_toggle_wanderwege_overlay: function (o_comp) {
+        o_comp.b_wanderwege_overlay = !o_comp.b_wanderwege_overlay;
+        if (!o_comp._o_map) return;
+
+        if (o_comp.b_wanderwege_overlay) {
+            o_comp._o_layer__wanderwege = L.tileLayer(
+                'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swisstlm3d-wanderwege/default/current/3857/{z}/{x}/{y}.png',
+                {
+                    opacity: 0.8,
+                    maxZoom: 18,
+                    bounds: L.latLngBounds(L.latLng(45.7, 5.9), L.latLng(47.9, 10.6)),
+                }
+            );
+            o_comp._o_layer__wanderwege.addTo(o_comp._o_map);
+        } else {
+            if (o_comp._o_layer__wanderwege) {
+                o_comp._o_map.removeLayer(o_comp._o_layer__wanderwege);
+                o_comp._o_layer__wanderwege = null;
+            }
+        }
+    },
+
     f_o_bounds__selection: function (o_comp) {
         let o_map = o_comp._o_map;
         let o_sel = o_comp.o_selection;
