@@ -753,7 +753,14 @@ let o_component__unified = {
                 n_mm_y = this.n_mm__max_width;
                 n_mm_x = Math.round(this.n_mm__max_width * o_sel.n_scl_x / o_sel.n_scl_y);
             }
-            return n_mm_x + ' mm';
+            let s_label = n_mm_x + ' mm';
+            if (this.n_m_per_pixel > 0) {
+                let n_m = this.n_m_per_pixel * o_sel.n_scl_x;
+                s_label += n_m >= 1000
+                    ? ' (' + (n_m / 1000).toFixed(1) + ' km)'
+                    : ' (' + Math.round(n_m) + ' m)';
+            }
+            return s_label;
         },
         s_mm_label_y: function () {
             let o_sel = this.o_selection;
@@ -766,7 +773,14 @@ let o_component__unified = {
                 n_mm_y = this.n_mm__max_width;
                 n_mm_x = Math.round(this.n_mm__max_width * o_sel.n_scl_x / o_sel.n_scl_y);
             }
-            return n_mm_y + ' mm';
+            let s_label = n_mm_y + ' mm';
+            if (this.n_m_per_pixel > 0) {
+                let n_m = this.n_m_per_pixel * o_sel.n_scl_y;
+                s_label += n_m >= 1000
+                    ? ' (' + (n_m / 1000).toFixed(1) + ' km)'
+                    : ' (' + Math.round(n_m) + ' m)';
+            }
+            return s_label;
         },
         n_deg__chamfer_effective: function () {
             return this.b_chamfer__enabled ? this.n_deg__chamfer : 0;
