@@ -933,22 +933,51 @@ let f_o_group__trail = function (THREE, a_n__mask, n_mask_x, n_mask_y, n_mm_widt
     let n_mm_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
 
     // downsample mask if pixel size would be below 1mm (ensures minimum trail thickness)
+    // uses max-pooling: if ANY source pixel in the block is a trail, output is trail
     let n_mm__min_pixel = 1.0;
     if (n_mm_x / n_mask_x < n_mm__min_pixel || n_mm_y / n_mask_y < n_mm__min_pixel) {
         let n_new_x = Math.max(2, Math.floor(n_mm_x / n_mm__min_pixel));
         let n_new_y = Math.max(2, Math.floor(n_mm_y / n_mm__min_pixel));
         let a_n__ds = new Uint8Array(n_new_x * n_new_y);
         for (let n_row = 0; n_row < n_new_y; n_row++) {
+            let n_src_r0 = Math.floor(n_row * n_mask_y / n_new_y);
+            let n_src_r1 = Math.floor((n_row + 1) * n_mask_y / n_new_y);
             for (let n_col = 0; n_col < n_new_x; n_col++) {
-                let n_src_col = Math.round(n_col * (n_mask_x - 1) / (n_new_x - 1));
-                let n_src_row = Math.round(n_row * (n_mask_y - 1) / (n_new_y - 1));
-                a_n__ds[n_row * n_new_x + n_col] = a_n__mask[n_src_row * n_mask_x + n_src_col];
+                let n_src_c0 = Math.floor(n_col * n_mask_x / n_new_x);
+                let n_src_c1 = Math.floor((n_col + 1) * n_mask_x / n_new_x);
+                let n_val = 0;
+                for (let n_sr = n_src_r0; n_sr < n_src_r1 && !n_val; n_sr++) {
+                    for (let n_sc = n_src_c0; n_sc < n_src_c1 && !n_val; n_sc++) {
+                        if (a_n__mask[n_sr * n_mask_x + n_sc]) n_val = 1;
+                    }
+                }
+                a_n__ds[n_row * n_new_x + n_col] = n_val;
             }
         }
         a_n__mask = a_n__ds;
         n_mask_x = n_new_x;
         n_mask_y = n_new_y;
     }
+
+    // dilate mask by 1px to close diagonal gaps between trail segments
+    let a_n__dilated = new Uint8Array(n_mask_x * n_mask_y);
+    for (let n_row = 0; n_row < n_mask_y; n_row++) {
+        for (let n_col = 0; n_col < n_mask_x; n_col++) {
+            if (a_n__mask[n_row * n_mask_x + n_col]) {
+                // set this pixel and all 8 neighbors
+                for (let n_dr = -1; n_dr <= 1; n_dr++) {
+                    for (let n_dc = -1; n_dc <= 1; n_dc++) {
+                        let n_nr = n_row + n_dr;
+                        let n_nc = n_col + n_dc;
+                        if (n_nr >= 0 && n_nr < n_mask_y && n_nc >= 0 && n_nc < n_mask_x) {
+                            a_n__dilated[n_nr * n_mask_x + n_nc] = 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    a_n__mask = a_n__dilated;
 
     let n_dx = n_mm_x / n_mask_x;
     let n_dy = n_mm_y / n_mask_y;
