@@ -931,6 +931,25 @@ let f_o_group__trail = function (THREE, a_n__mask, n_mask_x, n_mask_y, n_mm_widt
     let n_ratio = n_mask_x / n_mask_y;
     let n_mm_x = n_ratio >= 1 ? n_mm_width : n_mm_width * n_ratio;
     let n_mm_y = n_ratio >= 1 ? n_mm_width / n_ratio : n_mm_width;
+
+    // downsample mask if pixel size would be below 1mm (ensures minimum trail thickness)
+    let n_mm__min_pixel = 1.0;
+    if (n_mm_x / n_mask_x < n_mm__min_pixel || n_mm_y / n_mask_y < n_mm__min_pixel) {
+        let n_new_x = Math.max(2, Math.floor(n_mm_x / n_mm__min_pixel));
+        let n_new_y = Math.max(2, Math.floor(n_mm_y / n_mm__min_pixel));
+        let a_n__ds = new Uint8Array(n_new_x * n_new_y);
+        for (let n_row = 0; n_row < n_new_y; n_row++) {
+            for (let n_col = 0; n_col < n_new_x; n_col++) {
+                let n_src_col = Math.round(n_col * (n_mask_x - 1) / (n_new_x - 1));
+                let n_src_row = Math.round(n_row * (n_mask_y - 1) / (n_new_y - 1));
+                a_n__ds[n_row * n_new_x + n_col] = a_n__mask[n_src_row * n_mask_x + n_src_col];
+            }
+        }
+        a_n__mask = a_n__ds;
+        n_mask_x = n_new_x;
+        n_mask_y = n_new_y;
+    }
+
     let n_dx = n_mm_x / n_mask_x;
     let n_dy = n_mm_y / n_mask_y;
     let n_dz = n_mm_beam;
