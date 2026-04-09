@@ -478,6 +478,15 @@ let f_a_n__text_mask = function (n_col, n_row, n_mm_plate_x, n_mm_plate_y, s_tex
     return a_n__mask;
 };
 
+let a_o_variant = [
+    { n_mm_width: 240, s_suffix: 'large_240mm_ve1',    b_hole: false, n_ve: 1.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__large_ve1',    s_flag: 'b_show__large_ve1' },
+    { n_mm_width: 240, s_suffix: 'large_240mm_ve2',    b_hole: false, n_ve: 2.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__large_ve2',    s_flag: 'b_show__large_ve2' },
+    { n_mm_width: 160, s_suffix: 'medium_160mm_ve1',   b_hole: false, n_ve: 1.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__medium_ve1',   s_flag: 'b_show__medium_ve1' },
+    { n_mm_width: 160, s_suffix: 'medium_160mm_ve2',   b_hole: false, n_ve: 2.0, n_mm__baseplate__stl: null, n_mm__baseplate__scad: null, n_pxmm: null, s_key: '_o_group__medium_ve2',   s_flag: 'b_show__medium_ve2' },
+    { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1',  b_hole: true,  n_ve: 1.0, n_mm__baseplate__stl: 2,    n_mm__baseplate__scad: 1.5,  n_pxmm: null, s_key: '_o_group__keychain_ve1', s_flag: 'b_show__keychain_ve1' },
+    { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2',  b_hole: true,  n_ve: 2.0, n_mm__baseplate__stl: 2,    n_mm__baseplate__scad: 1.5,  n_pxmm: null, s_key: '_o_group__keychain_ve2', s_flag: 'b_show__keychain_ve2' },
+];
+
 // o_config: { n_m_per_pixel, n_scl_x__map_selection, n_m__elevation_min, n_m__elevation_max,
 //             n_mm__max_width, b_text__enabled, s_text__carve, n_mm__text_depth,
 //             n_mm__baseplate, n_mm__hole_diameter, n_mm__hole_margin, s_corner__hole, s_name__location }
@@ -570,7 +579,7 @@ let f_o_group__build_variant = function (THREE, o_config, a_n__image_data, n_scl
         let n_m__real_width = o_config.n_m_per_pixel * o_config.n_scl_x__map_selection;
         let n_scale = n_m__real_width * 1000 / n_mm_width;
         let n_scale__nice = f_n__nice_round(n_scale);
-        let a_s__line = ['TopoPrints'];
+        let a_s__line = ['bergform.ch'];
         if (o_config.s_name__location) a_s__line.push(o_config.s_name__location);
         a_s__line.push('1:' + f_s__format_number(n_scale__nice));
         a_s__line.push('VE: ' + n_factor.toFixed(1));
@@ -674,13 +683,13 @@ let f_s__openscad_script = function (o_config, n_scl_x__image, n_scl_y__image, n
     let s_location = o_config.s_name__location || '';
     let n_total_height = n_mm__baseplate + n_mm__displacement;
 
-    let a_s__carve = ['TopoPrints'];
+    let a_s__carve = ['bergform.ch'];
     if (s_location) a_s__carve.push(s_location);
     if (s_scale_text) a_s__carve.push(s_scale_text);
     a_s__carve.push('VE: ' + n_factor.toFixed(1));
 
     let s = '';
-    s += '// TopoPrints — OpenSCAD model\n';
+    s += '// bergform.ch — OpenSCAD model\n';
     s += '// ' + (s_location || 'Custom heightmap') + '\n';
     s += '// Width: ' + n_mm_width + 'mm, Scale: ' + (s_scale_text || 'N/A') + ', VE: ' + n_factor.toFixed(1) + '\n';
     s += '// Place this file in the same folder as the heightmap PNG\n\n';
@@ -793,15 +802,6 @@ let f_generate_and_download_all = async function (THREE, o_config, a_n__image_da
     let s_name = o_config.s_name__location || 'topo';
     s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
-    let a_o_variant = [
-        { n_mm_width: 220, s_suffix: 'large_220mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null },
-        { n_mm_width: 220, s_suffix: 'large_220mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null },
-        { n_mm_width: 160, s_suffix: 'medium_160mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null },
-        { n_mm_width: 160, s_suffix: 'medium_160mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null },
-        { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: true, n_ve: 1.0, n_mm__baseplate: 2, n_pxmm: null },
-        { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: true, n_ve: 2.0, n_mm__baseplate: 2, n_pxmm: null },
-    ];
-
     // download 6 STL files
     for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
         let o_variant = a_o_variant[n_i];
@@ -809,7 +809,7 @@ let f_generate_and_download_all = async function (THREE, o_config, a_n__image_da
 
         let o_group = f_o_group__build_variant(
             THREE, o_config, a_n__image_data, n_scl_x__image, n_scl_y__image,
-            o_variant.n_mm_width, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate, o_variant.n_pxmm
+            o_variant.n_mm_width, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate__stl, o_variant.n_pxmm
         );
         let o_buffer = f_o_buffer__stl_from_o_group(THREE, o_group);
 
@@ -840,22 +840,13 @@ let f_generate_and_download_all = async function (THREE, o_config, a_n__image_da
     await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
 
     // download 6 OpenSCAD scripts
-    let a_o_variant__scad = [
-        { n_mm_width: 220, s_suffix: 'large_220mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null },
-        { n_mm_width: 220, s_suffix: 'large_220mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null },
-        { n_mm_width: 160, s_suffix: 'medium_160mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null },
-        { n_mm_width: 160, s_suffix: 'medium_160mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null },
-        { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: true, n_ve: 1.0, n_mm__baseplate: 1.5 },
-        { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: true, n_ve: 2.0, n_mm__baseplate: 1.5 },
-    ];
-
-    for (let n_i = 0; n_i < a_o_variant__scad.length; n_i++) {
-        let o_variant = a_o_variant__scad[n_i];
-        if (f_on_status) f_on_status('Generating OpenSCAD ' + (n_i + 1) + '/' + a_o_variant__scad.length + '...');
+    for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
+        let o_variant = a_o_variant[n_i];
+        if (f_on_status) f_on_status('Generating OpenSCAD ' + (n_i + 1) + '/' + a_o_variant.length + '...');
 
         let s_script = f_s__openscad_script(
             o_config, n_scl_x__image, n_scl_y__image,
-            o_variant.n_mm_width, s_heightmap_file, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate
+            o_variant.n_mm_width, s_heightmap_file, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate__scad
         );
 
         let o_blob = new Blob([s_script], { type: 'text/plain' });
@@ -873,6 +864,7 @@ let f_generate_and_download_all = async function (THREE, o_config, a_n__image_da
 };
 
 export {
+    a_o_variant,
     f_apply_displacement,
     f_o_geometry__solid_plane,
     f_o_buffer__stl_from_o_group,

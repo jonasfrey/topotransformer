@@ -1970,20 +1970,12 @@ let o_component__unified = {
             let s_name = o_self.s_name__location || 'topo';
             s_name = s_name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
 
-            let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__large_ve1', s_flag: 'b_show__large_ve1' },
-                { n_mm_width: 220, s_suffix: 'large_220mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__large_ve2', s_flag: 'b_show__large_ve2' },
-                { n_mm_width: 160, s_suffix: 'medium_160mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium_ve1', s_flag: 'b_show__medium_ve1' },
-                { n_mm_width: 160, s_suffix: 'medium_160mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null, n_pxmm: null, s_key: '_o_group__medium_ve2', s_flag: 'b_show__medium_ve2' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: o_self.b_hole__enabled, n_ve: 1.0, n_mm__baseplate: 2, n_pxmm: null, s_key: '_o_group__keychain_ve1', s_flag: 'b_show__keychain_ve1' },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: o_self.b_hole__enabled, n_ve: 2.0, n_mm__baseplate: 2, n_pxmm: null, s_key: '_o_group__keychain_ve2', s_flag: 'b_show__keychain_ve2' },
-            ];
-
             o_self.f_dispose_variant_preview();
 
-            for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
-                let o_variant = a_o_variant[n_i];
-                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate, o_variant.n_pxmm);
+            for (let n_i = 0; n_i < _a_o_variant.length; n_i++) {
+                let o_variant = _a_o_variant[n_i];
+                let b_hole = o_variant.b_hole && o_self.b_hole__enabled;
+                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, b_hole, o_variant.n_ve, o_variant.n_mm__baseplate__stl, o_variant.n_pxmm);
                 let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
                 let o_mesh = o_group.children[0];
@@ -2005,15 +1997,15 @@ let o_component__unified = {
 
                 o_self.f_download_buffer(o_buffer, s_name + '_' + o_variant.s_suffix + '.stl');
 
-                if (n_i < a_o_variant.length - 1) {
+                if (n_i < _a_o_variant.length - 1) {
                     await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
                 }
             }
 
-            for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
+            for (let n_i = 0; n_i < _a_o_variant.length; n_i++) {
                 let b_visible = n_i === 0;
-                o_self[a_o_variant[n_i].s_flag] = b_visible;
-                if (o_self[a_o_variant[n_i].s_key]) o_self[a_o_variant[n_i].s_key].visible = b_visible;
+                o_self[_a_o_variant[n_i].s_flag] = b_visible;
+                if (o_self[_a_o_variant[n_i].s_key]) o_self[_a_o_variant[n_i].s_key].visible = b_visible;
             }
 
             o_self.b_variant__generated = true;
@@ -2223,19 +2215,11 @@ let o_component__unified = {
 
             await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
 
-            let a_o_variant = [
-                { n_mm_width: 220, s_suffix: 'large_220mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null },
-                { n_mm_width: 220, s_suffix: 'large_220mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null },
-                { n_mm_width: 160, s_suffix: 'medium_160mm_ve1', b_hole: false, n_ve: 1.0, n_mm__baseplate: null },
-                { n_mm_width: 160, s_suffix: 'medium_160mm_ve2', b_hole: false, n_ve: 2.0, n_mm__baseplate: null },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve1', b_hole: o_self.b_hole__enabled, n_ve: 1.0, n_mm__baseplate: 1.5 },
-                { n_mm_width: 35,  s_suffix: 'keychain_35mm_ve2', b_hole: o_self.b_hole__enabled, n_ve: 2.0, n_mm__baseplate: 1.5 },
-            ];
-
-            for (let n_i = 0; n_i < a_o_variant.length; n_i++) {
-                let o_variant = a_o_variant[n_i];
+            for (let n_i = 0; n_i < _a_o_variant.length; n_i++) {
+                let o_variant = _a_o_variant[n_i];
+                let b_hole = o_variant.b_hole && o_self.b_hole__enabled;
                 let s_script = o_self.f_s__openscad_script(
-                    o_variant.n_mm_width, s_heightmap_file, o_variant.b_hole, o_variant.n_ve, o_variant.n_mm__baseplate
+                    o_variant.n_mm_width, s_heightmap_file, b_hole, o_variant.n_ve, o_variant.n_mm__baseplate__scad
                 );
 
                 let o_blob = new Blob([s_script], { type: 'text/plain' });
@@ -2706,7 +2690,7 @@ let o_component__unified = {
 };
 
 // cache the stl_pipeline imports for use in f_o_geometry__solid_plane
-import { f_o_geometry__solid_plane as _f_o_geometry__solid_plane } from "./stl_pipeline.js";
+import { f_o_geometry__solid_plane as _f_o_geometry__solid_plane, a_o_variant as _a_o_variant } from "./stl_pipeline.js";
 let await_import_cache = { f_o_geometry__solid_plane: _f_o_geometry__solid_plane };
 
 export { o_component__unified };
