@@ -685,7 +685,10 @@ let o_config__switzerland = {
         el_canvas.height = n_cnt__tile_y * n_tile_sz;
         let o_ctx = el_canvas.getContext('2d');
 
+        // fetch tiles via fetch()+blob to avoid CORS canvas tainting
         let a_o_promise = [];
+        let n_cnt__loaded = 0;
+        let n_cnt__total = n_cnt__tile_x * n_cnt__tile_y;
         for (let n_ty = n_tile_y0; n_ty <= n_tile_y1; n_ty++) {
             for (let n_tx = n_tile_x0; n_tx <= n_tile_x1; n_tx++) {
                 let n_dx = (n_tx - n_tile_x0) * n_tile_sz;
@@ -693,16 +696,28 @@ let o_config__switzerland = {
                 let s_url = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swisstlm3d-wanderwege/default/current/3857/'
                     + n_zoom + '/' + n_tx + '/' + n_ty + '.png';
                 a_o_promise.push(
-                    new Promise(function (f_resolve) {
-                        let o_img = new Image();
-                        o_img.crossOrigin = 'anonymous';
-                        o_img.onload = function () {
-                            o_ctx.drawImage(o_img, n_dx, n_dy);
-                            f_resolve();
-                        };
-                        o_img.onerror = function () { f_resolve(); };
-                        o_img.src = s_url;
-                    })
+                    fetch(s_url).then(function (o_resp) {
+                        if (!o_resp.ok) return;
+                        return o_resp.blob();
+                    }).then(function (o_blob) {
+                        if (!o_blob) return;
+                        let s_blob_url = URL.createObjectURL(o_blob);
+                        return new Promise(function (f_resolve) {
+                            let o_img = new Image();
+                            o_img.onload = function () {
+                                URL.revokeObjectURL(s_blob_url);
+                                o_ctx.drawImage(o_img, n_dx, n_dy);
+                                n_cnt__loaded++;
+                                o_comp.s_status = 'Wanderwege tiles: ' + n_cnt__loaded + '/' + n_cnt__total;
+                                f_resolve();
+                            };
+                            o_img.onerror = function () {
+                                URL.revokeObjectURL(s_blob_url);
+                                f_resolve();
+                            };
+                            o_img.src = s_blob_url;
+                        });
+                    }).catch(function () { /* tile fetch failed, skip */ })
                 );
             }
         }
@@ -720,9 +735,16 @@ let o_config__switzerland = {
 
         // extract alpha channel as binary mask (trail = 1, empty = 0)
         let a_n__mask = new Uint8Array(n_crop_w * n_crop_h);
+        let n_cnt__trail = 0;
         for (let n_i = 0; n_i < a_n__mask.length; n_i++) {
-            a_n__mask[n_i] = o_imagedata.data[n_i * 4 + 3] > 64 ? 1 : 0;
+            if (o_imagedata.data[n_i * 4 + 3] > 64) {
+                a_n__mask[n_i] = 1;
+                n_cnt__trail++;
+            }
         }
+        console.log('[Wanderwege] tiles loaded: ' + n_cnt__loaded + '/' + n_cnt__total +
+            ', mask: ' + n_crop_w + 'x' + n_crop_h + ', trail pixels: ' + n_cnt__trail);
+        o_comp.s_status = 'Trail mask: ' + n_crop_w + 'x' + n_crop_h + ' (' + n_cnt__trail + ' trail px)';
 
         return {
             a_n__mask: a_n__mask,
