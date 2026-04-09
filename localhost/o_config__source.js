@@ -688,7 +688,8 @@ let o_config__switzerland = {
         let o_sel = o_comp.o_selection;
         let n_ratio = o_sel.n_scl_x / o_sel.n_scl_y;
 
-        let n_resolution = n_resolution__override || Math.round(o_comp.n_dp_per_mm * o_comp.n_mm__max_width);
+        let n_tile_total = Math.max(o_comp.n_tile_col, o_comp.n_tile_row) || 1;
+        let n_resolution = n_resolution__override || Math.round(o_comp.n_dp_per_mm * o_comp.n_mm__max_width * n_tile_total);
         let n_scl_x__out, n_scl_y__out;
         if (n_ratio >= 1) {
             n_scl_x__out = n_resolution;

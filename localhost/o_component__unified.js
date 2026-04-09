@@ -228,7 +228,7 @@ let o_component__unified = {
                                     {
                                         class: 'bw3d__section',
                                         a_o: [
-                                            { s_tag: 'label', class: 'bw3d__label', title: 'Optimized for FDM printing with a 0.2mm nozzle (5 dp/mm minimum). Higher values capture more detail but increase file size.', innerText: 'Print resolution (dp/mm)' },
+                                            { s_tag: 'label', class: 'bw3d__label', title: 'Points per mm for each tile. Total resolution scales with tile count.', innerText: "{{ (n_tile_col > 1 || n_tile_row > 1) ? 'Print resolution (' + n_dp_per_mm + ' × ' + (n_tile_col * n_tile_row) + ' tiles = ' + (n_dp_per_mm * n_tile_col * n_tile_row) + ' dp/mm total)' : 'Print resolution (dp/mm)' }}" },
                                             { s_tag: 'input', type: 'number', 'v-model.number': 'n_dp_per_mm', min: '1', max: '20', step: '1', class: 'sidebar__input' },
                                         ],
                                     },
@@ -595,7 +595,7 @@ let o_component__unified = {
             s_data_url__heightmap: '',
             s_resolution: '',
             b_advanced_open: false,
-            n_dp_per_mm: 5,
+            n_dp_per_mm: 8,
 
             // --- 3d image data ---
             a_n__image_data: null,
@@ -782,7 +782,8 @@ let o_component__unified = {
             // real-world width of selection in meters
             let n_m__real_width = this.n_m_per_pixel * o_sel.n_scl_x;
             // required resolution: how many meters per datapoint the print needs
-            let n_m__required = n_m__real_width / (this.n_mm__max_width * this.n_dp_per_mm);
+            let n_tile_total = Math.max(this.n_tile_col, this.n_tile_row) || 1;
+            let n_m__required = n_m__real_width / (this.n_mm__max_width * this.n_dp_per_mm * n_tile_total);
             let n_m__source = this.o_config.n_m__native_resolution;
             if (!n_m__source) return null;
             let b_sufficient = n_m__source <= n_m__required;
@@ -1830,7 +1831,7 @@ let o_component__unified = {
             let THREE = o_self._THREE;
             let n_factor = (n_ve_override != null) ? n_ve_override : o_self.n_factor;
 
-            n_pxmm = n_pxmm || o_self.n_dp_per_mm || 5;
+            n_pxmm = n_pxmm || o_self.n_dp_per_mm || 8;
             let n_max_px = Math.round(n_mm_width * n_pxmm);
             let n_src_x = o_self.n_scl_x__image;
             let n_src_y = o_self.n_scl_y__image;
