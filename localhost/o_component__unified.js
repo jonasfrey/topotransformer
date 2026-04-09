@@ -2032,8 +2032,9 @@ let o_component__unified = {
 
             for (let n_i = 0; n_i < _a_o_variant.length; n_i++) {
                 let o_variant = _a_o_variant[n_i];
+                let n_mm_width = o_variant.n_mm_width === 250 ? o_self.n_mm__max_width : o_variant.n_mm_width;
                 let b_hole = o_variant.b_hole && o_self.b_hole__enabled;
-                let o_group = o_self.f_o_group__build_variant(o_variant.n_mm_width, b_hole, o_variant.n_ve, o_variant.n_mm__baseplate__stl, o_variant.n_pxmm);
+                let o_group = o_self.f_o_group__build_variant(n_mm_width, b_hole, o_variant.n_ve, o_variant.n_mm__baseplate__stl, o_variant.n_pxmm);
                 let o_buffer = o_self.f_o_buffer__stl_from_o_group(o_group);
 
                 let o_mesh = o_group.children[0];
@@ -2053,7 +2054,8 @@ let o_component__unified = {
                 o_self._o_scene.add(o_group);
                 o_self[o_variant.s_key] = o_group;
 
-                o_self.f_download_buffer(o_buffer, s_name + '_' + o_variant.s_suffix + '.stl');
+                let s_suffix = o_variant.s_suffix.replace(/250mm/, n_mm_width + 'mm');
+                o_self.f_download_buffer(o_buffer, s_name + '_' + s_suffix + '.stl');
 
                 if (n_i < _a_o_variant.length - 1) {
                     await new Promise(function (f_resolve) { setTimeout(f_resolve, 500); });
@@ -2275,16 +2277,18 @@ let o_component__unified = {
 
             for (let n_i = 0; n_i < _a_o_variant.length; n_i++) {
                 let o_variant = _a_o_variant[n_i];
+                let n_mm_width = o_variant.n_mm_width === 250 ? o_self.n_mm__max_width : o_variant.n_mm_width;
                 let b_hole = o_variant.b_hole && o_self.b_hole__enabled;
                 let s_script = o_self.f_s__openscad_script(
-                    o_variant.n_mm_width, s_heightmap_file, b_hole, o_variant.n_ve, o_variant.n_mm__baseplate__scad
+                    n_mm_width, s_heightmap_file, b_hole, o_variant.n_ve, o_variant.n_mm__baseplate__scad
                 );
 
+                let s_suffix = o_variant.s_suffix.replace(/250mm/, n_mm_width + 'mm');
                 let o_blob = new Blob([s_script], { type: 'text/plain' });
                 let s_url = URL.createObjectURL(o_blob);
                 let o_a = document.createElement('a');
                 o_a.href = s_url;
-                o_a.download = s_name + '_' + o_variant.s_suffix + '.scad';
+                o_a.download = s_name + '_' + s_suffix + '.scad';
                 o_a.click();
                 URL.revokeObjectURL(s_url);
 
