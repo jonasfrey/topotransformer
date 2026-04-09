@@ -314,6 +314,14 @@ let o_component__unified = {
                                 a_o: [
                                     { s_tag: 'label', class: 'sidebar__heading', innerText: 'Export' },
                                     {
+                                        class: 'bw3d__row',
+                                        style: 'margin-bottom: 6px',
+                                        a_o: [
+                                            { s_tag: 'label', class: 'sidebar__label', innerText: 'Backside text', style: 'flex-shrink: 0' },
+                                            { s_tag: 'input', 'v-model': 's_text__backside', class: 'sidebar__input', style: 'flex: 1; min-width: 0', placeholder: 'bergform.ch' },
+                                        ]
+                                    },
+                                    {
                                         s_tag: 'div',
                                         ':class': "'sidebar__btn_primary interactable' + ((b_exporting || b_tiling__running) ? ' disabled' : '')",
                                         'v-on:click': 'f_generate_and_download',
@@ -614,6 +622,7 @@ let o_component__unified = {
             n_deg__chamfer: 45,
             b_text__enabled: true,
             s_text__carve: 'bergform.ch',
+            s_text__backside: 'bergform.ch',
             n_mm__text_depth: 0.2,
             b_hole__enabled: false,
             n_mm__hole_diameter: 5,
@@ -1098,7 +1107,7 @@ let o_component__unified = {
                             let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
                             let n_scale = n_m__real_width * 1000 / o_self.n_mm__max_width;
                             let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                            let a_s__line = ['bergform.ch'];
+                            let a_s__line = [o_self.s_text__backside];
                             if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                             a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
                             if (o_self.n_lat__north !== 0 || o_self.n_lon__east !== 0) {
@@ -1920,7 +1929,7 @@ let o_component__unified = {
                 let n_m__real_width = o_self.n_m_per_pixel__3d * o_self.n_scl_x__map_selection;
                 let n_scale = n_m__real_width * 1000 / n_mm_width;
                 let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                let a_s__line = ['bergform.ch'];
+                let a_s__line = [o_self.s_text__backside];
                 if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                 a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
                 if (o_self.n_lat__north !== 0 || o_self.n_lon__east !== 0) {
@@ -2119,7 +2128,7 @@ let o_component__unified = {
             let s_location = o_self.s_name__location || '';
             let n_total_height = n_mm__baseplate + n_mm__displacement;
 
-            let a_s__carve = ['bergform.ch'];
+            let a_s__carve = [o_self.s_text__backside];
             if (s_location) a_s__carve.push(s_location);
             if (s_scale_text) a_s__carve.push(s_scale_text);
             a_s__carve.push('VE: ' + n_factor.toFixed(1));
@@ -2127,7 +2136,7 @@ let o_component__unified = {
             let n_deg__chamfer_scad = o_self.b_chamfer__enabled ? 45 : 0;
 
             let s = '';
-            s += '// bergform.ch — OpenSCAD model\n';
+            s += '// ' + o_self.s_text__backside + ' — OpenSCAD model\n';
             s += '// ' + (s_location || 'Custom heightmap') + '\n';
             s += '// Width: ' + n_mm_width + 'mm, Scale: ' + (s_scale_text || 'N/A') + ', VE: ' + n_factor.toFixed(1) + '\n';
             s += '// Place this file in the same folder as the heightmap PNG\n\n';
@@ -2390,7 +2399,7 @@ let o_component__unified = {
                     let n_mm_plate_y = n_ratio >= 1 ? o_self.n_mm__max_width / n_ratio : o_self.n_mm__max_width;
                     let n_scale = n_m__real_width_tile * 1000 / n_mm_plate_x;
                     let n_scale__nice = o_self.f_n__nice_round(n_scale);
-                    let a_s__line = ['bergform.ch'];
+                    let a_s__line = [o_self.s_text__backside];
                     if (o_self.s_name__location) a_s__line.push(o_self.s_name__location);
                     a_s__line.push('1:' + o_self.f_s__format_number(n_scale__nice));
                     if (o_coord__ne) {
