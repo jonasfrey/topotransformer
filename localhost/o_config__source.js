@@ -398,6 +398,9 @@ let o_config__global = {
             n_m__elevation_min: n_elevation__min,
             n_m__elevation_max: n_elevation__max,
             n_scl_x__selection: n_scl_x__out,
+            a_n__elevation: a_n__elevation,
+            n_scl_x__elevation: n_scl_x__out,
+            n_scl_y__elevation: n_scl_y__out,
         };
     },
 };
@@ -785,6 +788,9 @@ let o_config__switzerland = {
             n_m__elevation_min: n_elevation__min,
             n_m__elevation_max: n_elevation__max,
             n_scl_x__selection: n_scl_x__out,
+            a_n__elevation: a_n__flat,
+            n_scl_x__elevation: n_scl_x__out,
+            n_scl_y__elevation: n_scl_y__out,
         };
     },
 };
@@ -1073,6 +1079,12 @@ let o_config__mars = {
         let n_elevation__min_m = n_m__mars_min + (n_elevation__min / 255) * n_m__mars_range;
         let n_elevation__max_m = n_m__mars_min + (n_elevation__max / 255) * n_m__mars_range;
 
+        // convert luminance values to meters for float elevation array
+        let a_n__elevation_m = new Float32Array(n_cnt__pixel);
+        for (let n_i = 0; n_i < n_cnt__pixel; n_i++) {
+            a_n__elevation_m[n_i] = n_m__mars_min + (a_n__elevation[n_i] / 255) * n_m__mars_range;
+        }
+
         o_comp.s_status = 'Exported ' + n_scl_x__out + 'x' + n_scl_y__out + 'px (~' + Math.round(n_elevation__min_m) + 'm – ~' + Math.round(n_elevation__max_m) + 'm)';
 
         return {
@@ -1081,6 +1093,9 @@ let o_config__mars = {
             n_m__elevation_min: n_elevation__min_m,
             n_m__elevation_max: n_elevation__max_m,
             n_scl_x__selection: n_scl_x__out,
+            a_n__elevation: a_n__elevation_m,
+            n_scl_x__elevation: n_scl_x__out,
+            n_scl_y__elevation: n_scl_y__out,
         };
     },
 };

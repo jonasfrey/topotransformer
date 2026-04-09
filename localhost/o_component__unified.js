@@ -607,6 +607,9 @@ let o_component__unified = {
 
             // --- 3d image data ---
             a_n__image_data: null,
+            a_n__elevation: null,
+            n_scl_x__elevation: 0,
+            n_scl_y__elevation: 0,
             n_scl_x__image: 0,
             n_scl_y__image: 0,
             n_scl_x__full: 0,
@@ -1083,6 +1086,11 @@ let o_component__unified = {
                 this.n_m__elevation_max = o_result.n_m__elevation_max;
                 this.n_scl_x__map_selection = o_result.n_scl_x__selection;
 
+                // store float elevation data (bypasses 8-bit quantization for 3d mesh)
+                this.a_n__elevation = o_result.a_n__elevation || null;
+                this.n_scl_x__elevation = o_result.n_scl_x__elevation || 0;
+                this.n_scl_y__elevation = o_result.n_scl_y__elevation || 0;
+
                 // store geo bounds of selection
                 let o_sel = this.o_selection;
                 let o_latlng__nw = this._o_map.containerPointToLatLng(L.point(o_sel.n_x, o_sel.n_y));
@@ -1237,6 +1245,9 @@ let o_component__unified = {
                 o_self.n_m__elevation_min = 0;
                 o_self.n_m__elevation_max = 0;
                 o_self.n_scl_x__map_selection = 0;
+                o_self.a_n__elevation = null;
+                o_self.n_scl_x__elevation = 0;
+                o_self.n_scl_y__elevation = 0;
 
                 let o_image = new Image();
                 o_image.onload = function () { o_self.f_process_image(o_image); };
@@ -1362,9 +1373,10 @@ let o_component__unified = {
                 o_self._o_mesh = null;
             }
 
-            let n_scl_x = o_self.n_scl_x__image;
-            let n_scl_y = o_self.n_scl_y__image;
-            let a_n__data = o_self.a_n__image_data;
+            // use float elevation data when available, fall back to 8-bit image
+            let n_scl_x = o_self.a_n__elevation ? o_self.n_scl_x__elevation : o_self.n_scl_x__image;
+            let n_scl_y = o_self.a_n__elevation ? o_self.n_scl_y__elevation : o_self.n_scl_y__image;
+            let a_n__data = o_self.a_n__elevation || o_self.a_n__image_data;
             let n_factor = o_self.n_factor;
             let s_type = o_self.s_type__geometry;
 
@@ -1479,6 +1491,20 @@ let o_component__unified = {
             let n_col = n_scl_x;
             let o_vec = new THREE.Vector3();
 
+            let b_float = a_n__data instanceof Float32Array;
+            let n_min = 0;
+            let n_range = 1;
+            if (b_float) {
+                n_min = Infinity;
+                let n_max = -Infinity;
+                for (let n_i = 0; n_i < a_n__data.length; n_i++) {
+                    if (a_n__data[n_i] < n_min) n_min = a_n__data[n_i];
+                    if (a_n__data[n_i] > n_max) n_max = a_n__data[n_i];
+                }
+                n_range = n_max - n_min;
+                if (n_range === 0) n_range = 1;
+            }
+
             for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
                 let n_idx_row = Math.floor(n_idx / n_col);
                 let n_idx_col = n_idx % n_col;
@@ -1486,8 +1512,14 @@ let o_component__unified = {
                 n_idx_col = Math.min(n_idx_col, n_scl_x - 1);
 
                 let n_idx__pixel = n_idx_row * n_scl_x + n_idx_col;
-                let n_val = (n_idx__pixel < a_n__data.length) ? a_n__data[n_idx__pixel] : 127;
-                let n_offset = ((n_val - 127) / 128) * n_factor;
+                let n_offset;
+                if (b_float) {
+                    let n_val = (n_idx__pixel < a_n__data.length) ? a_n__data[n_idx__pixel] : (n_min + n_range / 2);
+                    n_offset = ((n_val - n_min) / n_range * 2 - 1) * n_factor;
+                } else {
+                    let n_val = (n_idx__pixel < a_n__data.length) ? a_n__data[n_idx__pixel] : 127;
+                    n_offset = ((n_val - 127) / 128) * n_factor;
+                }
 
                 o_vec.set(o_pos.getX(n_idx), o_pos.getY(n_idx), o_pos.getZ(n_idx));
 
@@ -1856,40 +1888,49 @@ let o_component__unified = {
 
             n_pxmm = n_pxmm || o_self.n_dp_per_mm || 8;
             let n_max_px = Math.round(n_mm_width * n_pxmm);
-            let n_src_x = o_self.n_scl_x__image;
-            let n_src_y = o_self.n_scl_y__image;
+
+            // use float elevation data when available (bypasses 8-bit quantization)
+            let b_float = !!o_self.a_n__elevation;
+            let n_src_x = b_float ? o_self.n_scl_x__elevation : o_self.n_scl_x__image;
+            let n_src_y = b_float ? o_self.n_scl_y__elevation : o_self.n_scl_y__image;
             let n_scl_x = n_src_x;
             let n_scl_y = n_src_y;
-            let a_n__data = o_self.a_n__image_data;
+            let a_n__data = b_float ? o_self.a_n__elevation : o_self.a_n__image_data;
 
             if (n_scl_x > n_max_px || n_scl_y > n_max_px) {
                 let n_ds = Math.min(n_max_px / n_scl_x, n_max_px / n_scl_y);
-                n_scl_x = Math.max(2, Math.floor(n_scl_x * n_ds));
-                n_scl_y = Math.max(2, Math.floor(n_scl_y * n_ds));
+                let n_new_x = Math.max(2, Math.floor(n_scl_x * n_ds));
+                let n_new_y = Math.max(2, Math.floor(n_scl_y * n_ds));
 
-                let el_src = document.createElement('canvas');
-                el_src.width = n_src_x;
-                el_src.height = n_src_y;
-                let o_ctx_src = el_src.getContext('2d');
-                let o_img = o_ctx_src.createImageData(n_src_x, n_src_y);
-                for (let n_i = 0; n_i < o_self.a_n__image_data.length; n_i++) {
-                    let n_v = o_self.a_n__image_data[n_i];
-                    o_img.data[n_i * 4] = n_v;
-                    o_img.data[n_i * 4 + 1] = n_v;
-                    o_img.data[n_i * 4 + 2] = n_v;
-                    o_img.data[n_i * 4 + 3] = 255;
+                if (b_float) {
+                    a_n__data = _f_a_n__resample_float(a_n__data, n_scl_x, n_scl_y, n_new_x, n_new_y);
+                } else {
+                    let el_src = document.createElement('canvas');
+                    el_src.width = n_src_x;
+                    el_src.height = n_src_y;
+                    let o_ctx_src = el_src.getContext('2d');
+                    let o_img = o_ctx_src.createImageData(n_src_x, n_src_y);
+                    for (let n_i = 0; n_i < o_self.a_n__image_data.length; n_i++) {
+                        let n_v = o_self.a_n__image_data[n_i];
+                        o_img.data[n_i * 4] = n_v;
+                        o_img.data[n_i * 4 + 1] = n_v;
+                        o_img.data[n_i * 4 + 2] = n_v;
+                        o_img.data[n_i * 4 + 3] = 255;
+                    }
+                    o_ctx_src.putImageData(o_img, 0, 0);
+                    let el_dst = document.createElement('canvas');
+                    el_dst.width = n_new_x;
+                    el_dst.height = n_new_y;
+                    let o_ctx_dst = el_dst.getContext('2d');
+                    o_ctx_dst.drawImage(el_src, 0, 0, n_new_x, n_new_y);
+                    let o_img_dst = o_ctx_dst.getImageData(0, 0, n_new_x, n_new_y);
+                    a_n__data = new Uint8Array(n_new_x * n_new_y);
+                    for (let n_i = 0; n_i < a_n__data.length; n_i++) {
+                        a_n__data[n_i] = o_img_dst.data[n_i * 4];
+                    }
                 }
-                o_ctx_src.putImageData(o_img, 0, 0);
-                let el_dst = document.createElement('canvas');
-                el_dst.width = n_scl_x;
-                el_dst.height = n_scl_y;
-                let o_ctx_dst = el_dst.getContext('2d');
-                o_ctx_dst.drawImage(el_src, 0, 0, n_scl_x, n_scl_y);
-                let o_img_dst = o_ctx_dst.getImageData(0, 0, n_scl_x, n_scl_y);
-                a_n__data = new Uint8Array(n_scl_x * n_scl_y);
-                for (let n_i = 0; n_i < a_n__data.length; n_i++) {
-                    a_n__data[n_i] = o_img_dst.data[n_i * 4];
-                }
+                n_scl_x = n_new_x;
+                n_scl_y = n_new_y;
             }
 
             let n_ratio = n_scl_x / n_scl_y;
@@ -2322,6 +2363,30 @@ let o_component__unified = {
 
         f_a_n__extract_region: function (n_x, n_y, n_scl_x, n_scl_y) {
             let o_self = this;
+
+            // extract from float elevation data when available
+            if (o_self.a_n__elevation) {
+                let n_full_x = o_self.n_scl_x__elevation;
+                let n_full_y = o_self.n_scl_y__elevation;
+                // map pixel coords from grayscale canvas space to elevation grid space
+                let n_ratio_x = n_full_x / o_self.n_scl_x__full;
+                let n_ratio_y = n_full_y / o_self.n_scl_y__full;
+                let n_ex = Math.round(n_x * n_ratio_x);
+                let n_ey = Math.round(n_y * n_ratio_y);
+                let n_ew = Math.round(n_scl_x * n_ratio_x);
+                let n_eh = Math.round(n_scl_y * n_ratio_y);
+                n_ew = Math.min(n_ew, n_full_x - n_ex);
+                n_eh = Math.min(n_eh, n_full_y - n_ey);
+
+                let a_n__region = new Float32Array(n_ew * n_eh);
+                for (let n_r = 0; n_r < n_eh; n_r++) {
+                    for (let n_c = 0; n_c < n_ew; n_c++) {
+                        a_n__region[n_r * n_ew + n_c] = o_self.a_n__elevation[(n_ey + n_r) * n_full_x + (n_ex + n_c)];
+                    }
+                }
+                return { a_n__gray: a_n__region, n_scl_x: n_ew, n_scl_y: n_eh };
+            }
+
             let o_ctx = o_self._el_canvas__grayscale.getContext('2d');
             let o_imagedata = o_ctx.getImageData(n_x, n_y, n_scl_x, n_scl_y);
             let a_n__rgba = o_imagedata.data;
@@ -2651,40 +2716,59 @@ let o_component__unified = {
                 // pass coarse resolution override for minimap preview
                 let o_result = await o_self.o_config.f_s_data_url__from_elevation(o_self, 64);
 
-                // decode heightmap into grayscale array
-                let o_image = new Image();
-                let o_data = await new Promise(function (f_resolve) {
-                    o_image.onload = function () {
-                        let n_w = o_image.width;
-                        let n_h = o_image.height;
-                        let el_c = document.createElement('canvas');
-                        el_c.width = n_w;
-                        el_c.height = n_h;
-                        let o_ctx = el_c.getContext('2d');
-                        o_ctx.drawImage(o_image, 0, 0);
-                        let o_img_data = o_ctx.getImageData(0, 0, n_w, n_h);
-                        let a_n = new Uint8Array(n_w * n_h);
-                        for (let n_i = 0; n_i < a_n.length; n_i++) {
-                            a_n[n_i] = o_img_data.data[n_i * 4];
-                        }
-                        f_resolve({ a_n, n_w, n_h });
-                    };
-                    o_image.src = o_result.s_data_url;
-                });
+                // use float elevation data directly, fall back to 8-bit heightmap
+                let a_n__elev = o_result.a_n__elevation || null;
+                let n_scl_x, n_scl_y;
+                let n_elev__min, n_elev__max, n_elev__range;
+
+                if (a_n__elev) {
+                    n_scl_x = o_result.n_scl_x__elevation;
+                    n_scl_y = o_result.n_scl_y__elevation;
+                    n_elev__min = o_result.n_m__elevation_min;
+                    n_elev__max = o_result.n_m__elevation_max;
+                    n_elev__range = n_elev__max - n_elev__min;
+                    if (n_elev__range === 0) n_elev__range = 1;
+                } else {
+                    let o_image = new Image();
+                    let o_data = await new Promise(function (f_resolve) {
+                        o_image.onload = function () {
+                            let n_w = o_image.width;
+                            let n_h = o_image.height;
+                            let el_c = document.createElement('canvas');
+                            el_c.width = n_w;
+                            el_c.height = n_h;
+                            let o_ctx = el_c.getContext('2d');
+                            o_ctx.drawImage(o_image, 0, 0);
+                            let o_img_data = o_ctx.getImageData(0, 0, n_w, n_h);
+                            let a_n = new Uint8Array(n_w * n_h);
+                            for (let n_i = 0; n_i < a_n.length; n_i++) {
+                                a_n[n_i] = o_img_data.data[n_i * 4];
+                            }
+                            f_resolve({ a_n, n_w, n_h });
+                        };
+                        o_image.src = o_result.s_data_url;
+                    });
+                    n_scl_x = o_data.n_w;
+                    n_scl_y = o_data.n_h;
+                    // convert 8-bit to float for uniform code path below
+                    a_n__elev = new Float32Array(n_scl_x * n_scl_y);
+                    for (let n_i = 0; n_i < o_data.a_n.length; n_i++) {
+                        a_n__elev[n_i] = o_data.a_n[n_i];
+                    }
+                    n_elev__min = 0;
+                    n_elev__max = 255;
+                    n_elev__range = 255;
+                }
 
                 // build mesh
-                let n_scl_x = o_data.n_w;
-                let n_scl_y = o_data.n_h;
                 let n_ratio = n_scl_x / n_scl_y;
                 let n_plane_x = n_ratio >= 1 ? 2 : 2 * n_ratio;
                 let n_plane_y = n_ratio >= 1 ? 2 / n_ratio : 2;
                 let o_geometry = new THREE.PlaneGeometry(n_plane_x, n_plane_y, n_scl_x - 1, n_scl_y - 1);
 
                 // displace Z by elevation at true scale (VE 1.0)
-                // plane is n_plane_x units wide representing real-world width
                 let n_m__real_width = o_result.n_m_per_pixel * o_result.n_scl_x__selection;
                 let n_m__elevation_range = o_result.n_m__elevation_max - o_result.n_m__elevation_min;
-                // displacement in plane units: elevation range / real width * plane width
                 let n_displacement = (n_m__real_width > 0 && n_m__elevation_range > 0)
                     ? (n_m__elevation_range / n_m__real_width) * n_plane_x
                     : 0.1;
@@ -2695,8 +2779,8 @@ let o_component__unified = {
                     let n_col = n_idx % n_scl_x;
                     n_row = Math.min(n_row, n_scl_y - 1);
                     n_col = Math.min(n_col, n_scl_x - 1);
-                    let n_val = o_data.a_n[n_row * n_scl_x + n_col];
-                    o_pos.setZ(n_idx, (n_val / 255) * n_displacement);
+                    let n_nor = (a_n__elev[n_row * n_scl_x + n_col] - n_elev__min) / n_elev__range;
+                    o_pos.setZ(n_idx, n_nor * n_displacement);
                 }
                 o_pos.needsUpdate = true;
                 o_geometry.computeVertexNormals();
@@ -2704,7 +2788,8 @@ let o_component__unified = {
                 // vertex coloring (blue → green → red)
                 let a_n__color = new Float32Array(o_pos.count * 3);
                 for (let n_idx = 0; n_idx < o_pos.count; n_idx++) {
-                    let n_t = (o_data.a_n[Math.min(n_idx, o_data.a_n.length - 1)]) / 255;
+                    let n_i__elev = Math.min(n_idx, a_n__elev.length - 1);
+                    let n_t = (a_n__elev[n_i__elev] - n_elev__min) / n_elev__range;
                     let n_r, n_g, n_b;
                     if (n_t < 0.5) {
                         let n_t2 = n_t * 2;
@@ -2752,7 +2837,7 @@ let o_component__unified = {
 };
 
 // cache the stl_pipeline imports for use in f_o_geometry__solid_plane
-import { f_o_geometry__solid_plane as _f_o_geometry__solid_plane, a_o_variant as _a_o_variant } from "./stl_pipeline.js";
+import { f_o_geometry__solid_plane as _f_o_geometry__solid_plane, a_o_variant as _a_o_variant, f_a_n__resample_float as _f_a_n__resample_float } from "./stl_pipeline.js";
 let await_import_cache = { f_o_geometry__solid_plane: _f_o_geometry__solid_plane };
 
 export { o_component__unified };

@@ -1,11 +1,52 @@
 // Copyright (C) [2026] [Jonas Immanuel Frey] - Licensed under GPLv2. See LICENSE file for details.
 // Shared STL/3D generation pipeline used by map components.
 
+// bilinear resampling for Float32Array elevation grids
+let f_a_n__resample_float = function (a_n__src, n_src_x, n_src_y, n_dst_x, n_dst_y) {
+    let a_n__dst = new Float32Array(n_dst_x * n_dst_y);
+    for (let n_row = 0; n_row < n_dst_y; n_row++) {
+        let n_src_row = n_row * (n_src_y - 1) / (n_dst_y - 1 || 1);
+        let n_row0 = Math.floor(n_src_row);
+        let n_row1 = Math.min(n_row0 + 1, n_src_y - 1);
+        let n_t_row = n_src_row - n_row0;
+        for (let n_col = 0; n_col < n_dst_x; n_col++) {
+            let n_src_col = n_col * (n_src_x - 1) / (n_dst_x - 1 || 1);
+            let n_col0 = Math.floor(n_src_col);
+            let n_col1 = Math.min(n_col0 + 1, n_src_x - 1);
+            let n_t_col = n_src_col - n_col0;
+            let n_v00 = a_n__src[n_row0 * n_src_x + n_col0];
+            let n_v01 = a_n__src[n_row0 * n_src_x + n_col1];
+            let n_v10 = a_n__src[n_row1 * n_src_x + n_col0];
+            let n_v11 = a_n__src[n_row1 * n_src_x + n_col1];
+            a_n__dst[n_row * n_dst_x + n_col] =
+                n_v00 * (1 - n_t_col) * (1 - n_t_row) +
+                n_v01 * n_t_col * (1 - n_t_row) +
+                n_v10 * (1 - n_t_col) * n_t_row +
+                n_v11 * n_t_col * n_t_row;
+        }
+    }
+    return a_n__dst;
+};
+
 let f_apply_displacement = function (THREE, o_geometry, a_n__data, n_scl_x, n_scl_y, n_factor, s_type) {
     let o_pos = o_geometry.attributes.position;
     let n_cnt__vertex = o_pos.count;
     let n_col = n_scl_x;
     let o_vec = new THREE.Vector3();
+
+    let b_float = a_n__data instanceof Float32Array;
+    let n_min = 0;
+    let n_range = 1;
+    if (b_float) {
+        n_min = Infinity;
+        let n_max = -Infinity;
+        for (let n_i = 0; n_i < a_n__data.length; n_i++) {
+            if (a_n__data[n_i] < n_min) n_min = a_n__data[n_i];
+            if (a_n__data[n_i] > n_max) n_max = a_n__data[n_i];
+        }
+        n_range = n_max - n_min;
+        if (n_range === 0) n_range = 1;
+    }
 
     for (let n_idx = 0; n_idx < n_cnt__vertex; n_idx++) {
         let n_idx_row = Math.floor(n_idx / n_col);
@@ -14,8 +55,14 @@ let f_apply_displacement = function (THREE, o_geometry, a_n__data, n_scl_x, n_sc
         n_idx_col = Math.min(n_idx_col, n_scl_x - 1);
 
         let n_idx__pixel = n_idx_row * n_scl_x + n_idx_col;
-        let n_val = (n_idx__pixel < a_n__data.length) ? a_n__data[n_idx__pixel] : 127;
-        let n_offset = ((n_val - 127) / 128) * n_factor;
+        let n_offset;
+        if (b_float) {
+            let n_val = (n_idx__pixel < a_n__data.length) ? a_n__data[n_idx__pixel] : (n_min + n_range / 2);
+            n_offset = ((n_val - n_min) / n_range * 2 - 1) * n_factor;
+        } else {
+            let n_val = (n_idx__pixel < a_n__data.length) ? a_n__data[n_idx__pixel] : 127;
+            n_offset = ((n_val - 127) / 128) * n_factor;
+        }
 
         o_vec.set(o_pos.getX(n_idx), o_pos.getY(n_idx), o_pos.getZ(n_idx));
 
@@ -509,34 +556,50 @@ let f_o_group__build_variant = function (THREE, o_config, a_n__image_data, n_scl
     let n_scl_y = n_scl_y__image;
     let a_n__data = a_n__image_data;
 
+    // use float elevation data when available (bypasses 8-bit quantization)
+    let a_n__elevation = o_config.a_n__elevation || null;
+    let n_scl_x__elev = o_config.n_scl_x__elevation || n_scl_x__image;
+    let n_scl_y__elev = o_config.n_scl_y__elevation || n_scl_y__image;
+    if (a_n__elevation) {
+        n_scl_x = n_scl_x__elev;
+        n_scl_y = n_scl_y__elev;
+        a_n__data = a_n__elevation;
+    }
+
     if (n_scl_x > n_max_px || n_scl_y > n_max_px) {
         let n_ds = Math.min(n_max_px / n_scl_x, n_max_px / n_scl_y);
-        n_scl_x = Math.max(2, Math.floor(n_scl_x * n_ds));
-        n_scl_y = Math.max(2, Math.floor(n_scl_y * n_ds));
+        let n_new_x = Math.max(2, Math.floor(n_scl_x * n_ds));
+        let n_new_y = Math.max(2, Math.floor(n_scl_y * n_ds));
 
-        let el_src = document.createElement('canvas');
-        el_src.width = n_scl_x__image;
-        el_src.height = n_scl_y__image;
-        let o_ctx_src = el_src.getContext('2d');
-        let o_img = o_ctx_src.createImageData(n_scl_x__image, n_scl_y__image);
-        for (let n_i = 0; n_i < a_n__image_data.length; n_i++) {
-            let n_v = a_n__image_data[n_i];
-            o_img.data[n_i * 4] = n_v;
-            o_img.data[n_i * 4 + 1] = n_v;
-            o_img.data[n_i * 4 + 2] = n_v;
-            o_img.data[n_i * 4 + 3] = 255;
+        if (a_n__elevation) {
+            a_n__data = f_a_n__resample_float(a_n__data, n_scl_x, n_scl_y, n_new_x, n_new_y);
+        } else {
+            let el_src = document.createElement('canvas');
+            el_src.width = n_scl_x;
+            el_src.height = n_scl_y;
+            let o_ctx_src = el_src.getContext('2d');
+            let o_img = o_ctx_src.createImageData(n_scl_x, n_scl_y);
+            for (let n_i = 0; n_i < a_n__image_data.length; n_i++) {
+                let n_v = a_n__image_data[n_i];
+                o_img.data[n_i * 4] = n_v;
+                o_img.data[n_i * 4 + 1] = n_v;
+                o_img.data[n_i * 4 + 2] = n_v;
+                o_img.data[n_i * 4 + 3] = 255;
+            }
+            o_ctx_src.putImageData(o_img, 0, 0);
+            let el_dst = document.createElement('canvas');
+            el_dst.width = n_new_x;
+            el_dst.height = n_new_y;
+            let o_ctx_dst = el_dst.getContext('2d');
+            o_ctx_dst.drawImage(el_src, 0, 0, n_new_x, n_new_y);
+            let o_img_dst = o_ctx_dst.getImageData(0, 0, n_new_x, n_new_y);
+            a_n__data = new Uint8Array(n_new_x * n_new_y);
+            for (let n_i = 0; n_i < a_n__data.length; n_i++) {
+                a_n__data[n_i] = o_img_dst.data[n_i * 4];
+            }
         }
-        o_ctx_src.putImageData(o_img, 0, 0);
-        let el_dst = document.createElement('canvas');
-        el_dst.width = n_scl_x;
-        el_dst.height = n_scl_y;
-        let o_ctx_dst = el_dst.getContext('2d');
-        o_ctx_dst.drawImage(el_src, 0, 0, n_scl_x, n_scl_y);
-        let o_img_dst = o_ctx_dst.getImageData(0, 0, n_scl_x, n_scl_y);
-        a_n__data = new Uint8Array(n_scl_x * n_scl_y);
-        for (let n_i = 0; n_i < a_n__data.length; n_i++) {
-            a_n__data[n_i] = o_img_dst.data[n_i * 4];
-        }
+        n_scl_x = n_new_x;
+        n_scl_y = n_new_y;
     }
 
     let n_ratio = n_scl_x / n_scl_y;
@@ -865,6 +928,7 @@ let f_generate_and_download_all = async function (THREE, o_config, a_n__image_da
 
 export {
     a_o_variant,
+    f_a_n__resample_float,
     f_apply_displacement,
     f_o_geometry__solid_plane,
     f_o_buffer__stl_from_o_group,
