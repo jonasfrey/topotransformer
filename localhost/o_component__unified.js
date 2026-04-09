@@ -608,7 +608,7 @@ let o_component__unified = {
             s_type__geometry: 'plane',
             n_max_resolution: 5000,
             n_factor: 1.0,
-            n_mm__max_width: 240,
+            n_mm__max_width: 250,
             n_mm__min_side: 8,
             b_chamfer__enabled: false,
             n_deg__chamfer: 45,
@@ -1701,6 +1701,40 @@ let o_component__unified = {
                 o_ctx.textAlign = 'left';
                 o_ctx.textBaseline = 'bottom';
                 o_ctx.fillText(s_ruler, n_bar_x, n_bar_y - n_bar_height * 0.5);
+                o_ctx.restore();
+            }
+
+            // QR code for https://bergform.ch (25x25 modules, V2-L)
+            let a_n__qr = [
+                0x1fd3c7f, 0x104c441, 0x1745c5d, 0x1741b5d, 0x174ac5d,
+                0x1045041, 0x1fd557f, 0x0016d00, 0x1b4e941, 0x0e19e3e,
+                0x07e6a49, 0x018fb4f, 0x1a7ba61, 0x1a90f92, 0x185fa5f,
+                0x158a22d, 0x12545f6, 0x0017d16, 0x1fc6151, 0x1049712,
+                0x1759ff1, 0x175c4c3, 0x174d49f, 0x1054477, 0x1fd4d09
+            ];
+            let n_sz__qr = 25;
+            let n_mm__qr = Math.min(n_mm_plate_x, n_mm_plate_y) * 0.18;
+            let n_px__qr = n_mm__qr * n_px_per_mm;
+            let n_px__module = n_px__qr / n_sz__qr;
+            if (n_px__module >= 1) {
+                o_ctx.save();
+                o_ctx.scale(-1, 1);
+                o_ctx.fillStyle = 'white';
+                let n_qr_x = -(n_margin + n_px__qr);
+                let n_qr_y = n_row - n_chamfer_zone_h - n_margin - n_px__qr;
+                for (let n_qr_r = 0; n_qr_r < n_sz__qr; n_qr_r++) {
+                    let n_bits = a_n__qr[n_qr_r];
+                    for (let n_qr_c = 0; n_qr_c < n_sz__qr; n_qr_c++) {
+                        if ((n_bits >> (n_sz__qr - 1 - n_qr_c)) & 1) {
+                            o_ctx.fillRect(
+                                n_qr_x + n_qr_c * n_px__module,
+                                n_qr_y + n_qr_r * n_px__module,
+                                Math.ceil(n_px__module),
+                                Math.ceil(n_px__module)
+                            );
+                        }
+                    }
+                }
                 o_ctx.restore();
             }
 
