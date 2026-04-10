@@ -43,3 +43,4 @@
 2026-04-09 16:49:29 - Bypass 8-bit quantization: pass Float32Array elevation data directly to mesh displacement instead of routing through 0-255 grayscale PNG. Added bilinear resampler for float data, updated all 3 source configs, unified component, and stl_pipeline. PNG heightmap is now only for preview/download.
 2026-04-10 16:28:43 - Summarized QR code generation and STL engraving pipeline: hardcoded 25x25 hex QR → canvas raster → alpha mask → bottom-face vertex displacement in solid geometry
 2026-04-10 16:29:19 - Summarized font engraving: sans-serif font, 0.2mm default depth (0.05-2mm range), diagonal text on bottom face via canvas mask → vertex displacement
+2026-04-10 16:45:54 - Explained tech stack: Three.js for data structures only (PlaneGeometry, BufferGeometry), text via Canvas 2D fillText, engraving via custom vertex displacement, STL export via custom binary DataView writer
